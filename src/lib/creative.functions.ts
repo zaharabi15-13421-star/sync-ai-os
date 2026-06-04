@@ -7,10 +7,8 @@ import { z } from "zod";
 import { lovableModel } from "@/lib/ai-gateway";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Route every AI call through the Lovable AI Gateway so every signed-in user
-// can generate content with the shared workspace LOVABLE_API_KEY (no per-user
-// Google API key required).
-const googleModel = () => lovableModel("google/gemini-2.5-flash");
+// Use higher-tier Gemini Pro for the strongest text/structured outputs.
+const googleModel = () => lovableModel("google/gemini-2.5-pro");
 
 // =================== TEXT GENERATION FUNCTIONS ===================
 

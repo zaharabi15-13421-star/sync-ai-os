@@ -277,12 +277,15 @@ export function ProductHolography() {
     { text: "AI-Powered", position: "Top" },
     { text: "60% Faster", position: "Bottom" },
   ]);
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("holography", { prompt, tone, style: "Holographic", aspectRatio: "1:1", extras: { labels: labels.map(l => `${l.text} (${l.position})`) }, attachments: atts });
   return (
     <FeatureShell title="Product Holography" subtitle="Convert product photos into futuristic 3D-style holograms"
       left={<>
         <Section title="Product">
-          <FileDrop value={img} onChange={setImg} label="Product Image" />
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
         <Section title="Product Labels" right={
           <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={labels.length >= 5}
@@ -311,11 +314,11 @@ export function ProductHolography() {
             <div className="text-[10px] text-muted-foreground">Min 2 · Max 5 labels</div>
           </div>
         </Section>
-        <Button onClick={() => g.run("holography", { prompt, tone, style: "Holographic", aspectRatio: "1:1", extras: { labels: labels.map(l => `${l.text} (${l.position})`) } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Hologram
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("holography", { prompt, tone, style: "Holographic", aspectRatio: "1:1", extras: { labels: labels.map(l => `${l.text} (${l.position})`) } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput tint="from-cyan-500 via-indigo-600 to-purple-700" label="Hologram" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />
@@ -330,22 +333,25 @@ export function ProductPhotography() {
   const [tone, setTone] = useState("Luxury");
   const [platforms, setPlatforms] = useState<string[]>(["Instagram"]);
   const [ratio, setRatio] = useState("1:1");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("product-photo", { prompt, tone, style: "Studio", aspectRatio: ratio, extras: { platforms }, attachments: atts });
   return (
     <FeatureShell title="AI Product Photography" subtitle="Studio-grade product shots from a simple upload"
       left={<>
         <Section title="Product">
-          <FileDrop value={img} onChange={setImg} label="Product Image" hint="Best with clean product shots" />
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" hint="Best with clean product shots" />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
         <Section title="Output">
           <PlatformSelect value={platforms} onChange={setPlatforms} />
           <AspectRatioPicker value={ratio} onChange={setRatio} />
         </Section>
-        <Button onClick={() => g.run("product-photo", { prompt, tone, style: "Studio", aspectRatio: ratio, extras: { platforms } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Studio Shots
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("product-photo", { prompt, tone, style: "Studio", aspectRatio: ratio, extras: { platforms } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput tint="from-amber-500 via-rose-500 to-purple-700" label="Studio Shot" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />

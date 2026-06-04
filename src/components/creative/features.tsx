@@ -120,11 +120,14 @@ export function ImageLab() {
   const [platforms, setPlatforms] = useState<string[]>(["Instagram"]);
   const [ratio, setRatio] = useState("1:1");
   const [style, setStyle] = useState("Editorial");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("image-lab", { prompt, tone, style, aspectRatio: ratio, extras: { platforms }, attachments: atts });
   return (
     <FeatureShell title="Image Lab" subtitle="Generate high-fidelity on-brand imagery from a prompt"
       left={<>
         <Section title="Prompt">
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
         <Section title="Targeting">
           <PlatformSelect value={platforms} onChange={setPlatforms} />
@@ -140,12 +143,12 @@ export function ImageLab() {
             </Select>
           </div>
         </Section>
-        <Button onClick={() => g.run("image-lab", { prompt, tone, style, aspectRatio: ratio, extras: { platforms } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           {g.loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
           Generate Image
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("image-lab", { prompt, tone, style, aspectRatio: ratio, extras: { platforms } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput label="Image Lab" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />

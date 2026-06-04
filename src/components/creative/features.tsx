@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import {
   FeatureShell, PromptInput, AspectRatioPicker, PlatformSelect, FileDrop,
   ColorCustomizer, SearchSelect, SeoKeywordPicker, AudienceAge, OutputPanel,
-  Section, FieldLabel,
+  Section, FieldLabel, type PromptAttachment,
 } from "./shared";
 import {
   BLOG_TOPICS, WRITING_STYLES, INDUSTRIES, LANGUAGES,
@@ -120,11 +120,14 @@ export function ImageLab() {
   const [platforms, setPlatforms] = useState<string[]>(["Instagram"]);
   const [ratio, setRatio] = useState("1:1");
   const [style, setStyle] = useState("Editorial");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("image-lab", { prompt, tone, style, aspectRatio: ratio, extras: { platforms }, attachments: atts });
   return (
     <FeatureShell title="Image Lab" subtitle="Generate high-fidelity on-brand imagery from a prompt"
       left={<>
         <Section title="Prompt">
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
         <Section title="Targeting">
           <PlatformSelect value={platforms} onChange={setPlatforms} />
@@ -140,12 +143,12 @@ export function ImageLab() {
             </Select>
           </div>
         </Section>
-        <Button onClick={() => g.run("image-lab", { prompt, tone, style, aspectRatio: ratio, extras: { platforms } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           {g.loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
           Generate Image
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("image-lab", { prompt, tone, style, aspectRatio: ratio, extras: { platforms } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput label="Image Lab" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />
@@ -159,12 +162,15 @@ export function PosterStudio() {
   const [title, setTitle] = useState("Grand Opening");
   const [subtitle, setSubtitle] = useState("This Saturday at 6 PM");
   const [desc, setDesc] = useState("Launching our flagship store with live music and gifts.");
+  const [cta, setCta] = useState("Book Your Spot");
   const [tone, setTone] = useState("Premium");
   const [date, setDate] = useState("");
   const [contact, setContact] = useState("www.brandsync.ai");
   const [theme, setTheme] = useState("Modern");
   const [colors, setColors] = useState<string[]>(["#4f46e5", "#7c3aed", "#0ea5e9", "#f8fafc"]);
   const [ratio, setRatio] = useState("4:5");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, cta, date, contact, colors }, attachments: atts });
   return (
     <FeatureShell title="Intelligent Poster Studio" subtitle="Designed posters with smart layout, theme, and color control"
       left={<>
@@ -174,7 +180,9 @@ export function PosterStudio() {
         <Section title="Content">
           <div><FieldLabel>Title</FieldLabel><Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
           <div><FieldLabel>Subtitle / Tagline</FieldLabel><Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
-          <PromptInput value={desc} onChange={setDesc} label="Description" tone={tone} onToneChange={setTone} rows={3} />
+          <PromptInput value={desc} onChange={setDesc} label="Description" tone={tone} onToneChange={setTone} rows={3}
+            attachments={atts} onAttachmentsChange={setAtts} />
+          <div><FieldLabel>CTA (Call to Action)</FieldLabel><Input value={cta} onChange={(e) => setCta(e.target.value)} className="bg-white/5 border-white/10" placeholder="e.g. Book Your Spot, Shop Now, RSVP" /></div>
           <div className="grid grid-cols-2 gap-2">
             <div><FieldLabel>Date</FieldLabel><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-white/5 border-white/10" /></div>
             <div><FieldLabel>Contact / Website</FieldLabel><Input value={contact} onChange={(e) => setContact(e.target.value)} className="bg-white/5 border-white/10" /></div>
@@ -194,11 +202,11 @@ export function PosterStudio() {
           <ColorCustomizer value={colors} onChange={setColors} />
           <AspectRatioPicker value={ratio} onChange={setRatio} />
         </Section>
-        <Button onClick={() => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, date, contact, colors } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Poster
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, date, contact, colors } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         {g.output?.imageUrl ? (
           <div className="rounded-lg overflow-hidden border border-white/10">
             <img src={g.output.imageUrl} alt={title} className="w-full h-auto" />
@@ -211,6 +219,7 @@ export function PosterStudio() {
                 <div className="text-3xl font-bold">{title}</div>
                 <div className="text-sm opacity-90 mt-1">{subtitle}</div>
                 <div className="text-xs opacity-80 mt-4">{desc}</div>
+                {cta && <div className="mt-4 inline-block self-start px-3 py-1.5 rounded-full bg-white/15 text-xs font-semibold backdrop-blur-sm">{cta}</div>}
                 <div className="text-[10px] opacity-70 mt-6 flex justify-between">
                   <span>{date || "TBA"}</span><span>{contact}</span>
                 </div>
@@ -232,6 +241,8 @@ export function VirtualTryOn() {
   const [prompt, setPrompt] = useState("Outdoor catalog shot, natural daylight, magazine quality.");
   const [tone, setTone] = useState("Premium");
   const [ratio, setRatio] = useState("4:5");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("try-on", { prompt, tone, style: "Editorial", aspectRatio: ratio, extras: { platforms }, attachments: atts });
   return (
     <FeatureShell title="Virtual Try-On" subtitle="Fit garments and accessories on a model image"
       left={<>
@@ -240,15 +251,16 @@ export function VirtualTryOn() {
           <FileDrop value={assets} onChange={setAssets} multiple label="Assets (max 5)" hint="Clothing / shoes / accessories" />
         </Section>
         <Section title="Brief">
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
           <PlatformSelect value={platforms} onChange={setPlatforms} />
           <AspectRatioPicker value={ratio} onChange={setRatio} />
         </Section>
-        <Button onClick={() => g.run("try-on", { prompt, tone, style: "Editorial", aspectRatio: ratio, extras: { platforms } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Self Model
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("try-on", { prompt, tone, style: "Editorial", aspectRatio: ratio, extras: { platforms } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput tint="from-rose-500 to-fuchsia-700" label="Try-On Result" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />
@@ -265,12 +277,15 @@ export function ProductHolography() {
     { text: "AI-Powered", position: "Top" },
     { text: "60% Faster", position: "Bottom" },
   ]);
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("holography", { prompt, tone, style: "Holographic", aspectRatio: "1:1", extras: { labels: labels.map(l => `${l.text} (${l.position})`) }, attachments: atts });
   return (
     <FeatureShell title="Product Holography" subtitle="Convert product photos into futuristic 3D-style holograms"
       left={<>
         <Section title="Product">
-          <FileDrop value={img} onChange={setImg} label="Product Image" />
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
         <Section title="Product Labels" right={
           <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={labels.length >= 5}
@@ -299,11 +314,11 @@ export function ProductHolography() {
             <div className="text-[10px] text-muted-foreground">Min 2 · Max 5 labels</div>
           </div>
         </Section>
-        <Button onClick={() => g.run("holography", { prompt, tone, style: "Holographic", aspectRatio: "1:1", extras: { labels: labels.map(l => `${l.text} (${l.position})`) } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Hologram
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("holography", { prompt, tone, style: "Holographic", aspectRatio: "1:1", extras: { labels: labels.map(l => `${l.text} (${l.position})`) } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput tint="from-cyan-500 via-indigo-600 to-purple-700" label="Hologram" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />
@@ -318,22 +333,25 @@ export function ProductPhotography() {
   const [tone, setTone] = useState("Luxury");
   const [platforms, setPlatforms] = useState<string[]>(["Instagram"]);
   const [ratio, setRatio] = useState("1:1");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("product-photo", { prompt, tone, style: "Studio", aspectRatio: ratio, extras: { platforms }, attachments: atts });
   return (
     <FeatureShell title="AI Product Photography" subtitle="Studio-grade product shots from a simple upload"
       left={<>
         <Section title="Product">
-          <FileDrop value={img} onChange={setImg} label="Product Image" hint="Best with clean product shots" />
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" hint="Best with clean product shots" />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
         <Section title="Output">
           <PlatformSelect value={platforms} onChange={setPlatforms} />
           <AspectRatioPicker value={ratio} onChange={setRatio} />
         </Section>
-        <Button onClick={() => g.run("product-photo", { prompt, tone, style: "Studio", aspectRatio: ratio, extras: { platforms } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Studio Shots
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("product-photo", { prompt, tone, style: "Studio", aspectRatio: ratio, extras: { platforms } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput tint="from-amber-500 via-rose-500 to-purple-700" label="Studio Shot" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />
@@ -708,7 +726,7 @@ export function ThumbnailGenerator() {
     <FeatureShell title="Thumbnail Generator" subtitle="High-CTR YouTube thumbnails with overlay text"
       left={<>
         <Section title="Image">
-          <FileDrop value={img} onChange={setImg} label="Upload Image" accept="image/jpeg,image/png,image/webp" />
+          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" accept="image/jpeg,image/png,image/webp" />
         </Section>
         <Section title="Thumbnail Settings">
           <div>

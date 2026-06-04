@@ -241,6 +241,8 @@ export function VirtualTryOn() {
   const [prompt, setPrompt] = useState("Outdoor catalog shot, natural daylight, magazine quality.");
   const [tone, setTone] = useState("Premium");
   const [ratio, setRatio] = useState("4:5");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("try-on", { prompt, tone, style: "Editorial", aspectRatio: ratio, extras: { platforms }, attachments: atts });
   return (
     <FeatureShell title="Virtual Try-On" subtitle="Fit garments and accessories on a model image"
       left={<>
@@ -249,15 +251,16 @@ export function VirtualTryOn() {
           <FileDrop value={assets} onChange={setAssets} multiple label="Assets (max 5)" hint="Clothing / shoes / accessories" />
         </Section>
         <Section title="Brief">
-          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone} />
+          <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
+            attachments={atts} onAttachmentsChange={setAtts} />
           <PlatformSelect value={platforms} onChange={setPlatforms} />
           <AspectRatioPicker value={ratio} onChange={setRatio} />
         </Section>
-        <Button onClick={() => g.run("try-on", { prompt, tone, style: "Editorial", aspectRatio: ratio, extras: { platforms } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Self Model
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("try-on", { prompt, tone, style: "Editorial", aspectRatio: ratio, extras: { platforms } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         <ImageOutput tint="from-rose-500 to-fuchsia-700" label="Try-On Result" imageUrl={g.output?.imageUrl} />
       </OutputPanel>}
     />

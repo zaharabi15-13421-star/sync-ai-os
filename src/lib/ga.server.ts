@@ -205,8 +205,8 @@ export class GoogleReconnectRequiredError extends Error {
 
 export async function refreshAccessToken(refreshToken: string) {
   const body = new URLSearchParams({
-    client_id: process.env.GOOGLE_OAUTH_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
+    client_id: getGoogleClientId(),
+    client_secret: getGoogleClientSecret(),
     refresh_token: refreshToken,
     grant_type: "refresh_token",
   });

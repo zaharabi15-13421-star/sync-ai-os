@@ -162,12 +162,15 @@ export function PosterStudio() {
   const [title, setTitle] = useState("Grand Opening");
   const [subtitle, setSubtitle] = useState("This Saturday at 6 PM");
   const [desc, setDesc] = useState("Launching our flagship store with live music and gifts.");
+  const [cta, setCta] = useState("Book Your Spot");
   const [tone, setTone] = useState("Premium");
   const [date, setDate] = useState("");
   const [contact, setContact] = useState("www.brandsync.ai");
   const [theme, setTheme] = useState("Modern");
   const [colors, setColors] = useState<string[]>(["#4f46e5", "#7c3aed", "#0ea5e9", "#f8fafc"]);
   const [ratio, setRatio] = useState("4:5");
+  const [atts, setAtts] = useState<PromptAttachment[]>([]);
+  const runGen = () => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, cta, date, contact, colors }, attachments: atts });
   return (
     <FeatureShell title="Intelligent Poster Studio" subtitle="Designed posters with smart layout, theme, and color control"
       left={<>
@@ -177,7 +180,9 @@ export function PosterStudio() {
         <Section title="Content">
           <div><FieldLabel>Title</FieldLabel><Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
           <div><FieldLabel>Subtitle / Tagline</FieldLabel><Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
-          <PromptInput value={desc} onChange={setDesc} label="Description" tone={tone} onToneChange={setTone} rows={3} />
+          <PromptInput value={desc} onChange={setDesc} label="Description" tone={tone} onToneChange={setTone} rows={3}
+            attachments={atts} onAttachmentsChange={setAtts} />
+          <div><FieldLabel>CTA (Call to Action)</FieldLabel><Input value={cta} onChange={(e) => setCta(e.target.value)} className="bg-white/5 border-white/10" placeholder="e.g. Book Your Spot, Shop Now, RSVP" /></div>
           <div className="grid grid-cols-2 gap-2">
             <div><FieldLabel>Date</FieldLabel><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-white/5 border-white/10" /></div>
             <div><FieldLabel>Contact / Website</FieldLabel><Input value={contact} onChange={(e) => setContact(e.target.value)} className="bg-white/5 border-white/10" /></div>
@@ -197,11 +202,11 @@ export function PosterStudio() {
           <ColorCustomizer value={colors} onChange={setColors} />
           <AspectRatioPicker value={ratio} onChange={setRatio} />
         </Section>
-        <Button onClick={() => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, date, contact, colors } })} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
+        <Button onClick={runGen} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
           <Sparkles className="h-4 w-4 mr-2" /> Generate Poster
         </Button>
       </>}
-      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={() => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, date, contact, colors } })} kind="image">
+      right={<OutputPanel loading={g.loading} generated={g.generated} onGenerate={runGen} kind="image">
         {g.output?.imageUrl ? (
           <div className="rounded-lg overflow-hidden border border-white/10">
             <img src={g.output.imageUrl} alt={title} className="w-full h-auto" />
@@ -214,6 +219,7 @@ export function PosterStudio() {
                 <div className="text-3xl font-bold">{title}</div>
                 <div className="text-sm opacity-90 mt-1">{subtitle}</div>
                 <div className="text-xs opacity-80 mt-4">{desc}</div>
+                {cta && <div className="mt-4 inline-block self-start px-3 py-1.5 rounded-full bg-white/15 text-xs font-semibold backdrop-blur-sm">{cta}</div>}
                 <div className="text-[10px] opacity-70 mt-6 flex justify-between">
                   <span>{date || "TBA"}</span><span>{contact}</span>
                 </div>

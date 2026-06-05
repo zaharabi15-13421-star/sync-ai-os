@@ -161,6 +161,7 @@ export function ImageLab() {
 export function PosterStudio() {
   const g = useGenerator();
   const [logo, setLogo] = useState<File | File[] | null>(null);
+  const [person, setPerson] = useState<File | File[] | null>(null);
   const [title, setTitle] = useState("Grand Opening");
   const [subtitle, setSubtitle] = useState("This Saturday at 6 PM");
   const [desc, setDesc] = useState("Launching our flagship store with live music and gifts.");
@@ -172,17 +173,23 @@ export function PosterStudio() {
   const [colors, setColors] = useState<string[]>(["#4f46e5", "#7c3aed", "#0ea5e9", "#f8fafc"]);
   const [ratio, setRatio] = useState("4:5");
   const [atts, setAtts] = useState<PromptAttachment[]>([]);
-  const runGen = () => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, cta, date, contact, colors }, attachments: atts });
+  const runGen = () => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, cta, date, contact, colors, hasPersonImage: !!person }, attachments: atts });
   return (
     <FeatureShell title="Intelligent Poster Studio" subtitle="Designed posters with smart layout, theme, and color control"
       left={<>
         <Section title="Brand">
-          <FileDrop value={logo} onChange={setLogo} label="Brand Logo" hint="JPG / PNG / SVG · 5MB" />
+          <FileDrop value={logo} onChange={setLogo} label="Upload your brand logo"
+            dropHint="Drop your logo here or click to browse · JPG / PNG / SVG · Max 5MB"
+            accept="image/jpeg,image/png,image/svg+xml" hint="JPG / PNG / SVG · 5MB" />
+          <FileDrop value={person} onChange={setPerson} label="Upload a clear photo of a person or model"
+            dropHint="Drop a high-resolution, front-facing photo here, or click to browse"
+            accept="image/jpeg,image/png"
+            hint="Use a high-resolution, front-facing photo for best results · JPG / PNG · Max 10MB" />
         </Section>
         <Section title="Content">
-          <div><FieldLabel>Title</FieldLabel><Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
-          <div><FieldLabel>Subtitle / Tagline</FieldLabel><Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
-          <PromptInput value={desc} onChange={setDesc} label="Description" tone={tone} onToneChange={setTone} rows={3}
+          <div><FieldLabel>Poster Headline</FieldLabel><Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
+          <div><FieldLabel>Subtitle or Tagline</FieldLabel><Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
+          <PromptInput value={desc} onChange={setDesc} label="Event or Offer Description" tone={tone} onToneChange={setTone} rows={3}
             attachments={atts} onAttachmentsChange={setAtts} />
           <div><FieldLabel>CTA (Call to Action)</FieldLabel><Input value={cta} onChange={(e) => setCta(e.target.value)} className="bg-white/5 border-white/10" placeholder="e.g. Book Your Spot, Shop Now, RSVP" /></div>
           <div className="grid grid-cols-2 gap-2">

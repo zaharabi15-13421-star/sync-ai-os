@@ -256,8 +256,13 @@ export function VirtualTryOn() {
     <FeatureShell title="Virtual Try-On" subtitle="Fit garments and accessories on a model image"
       left={<>
         <Section title="Inputs">
-          <FileDrop value={person} onChange={setPerson} label="Person Image" hint="Clear full-body photo" />
-          <FileDrop value={assets} onChange={setAssets} multiple label="Assets (max 5)" hint="Clothing / shoes / accessories" />
+          <FileDrop value={person} onChange={setPerson}
+            label="Upload a clear full-body photo of a person"
+            dropHint="Drop a high-resolution front-facing photo here, or click to browse"
+            hint="Clear full-body photo" />
+          <FileDrop value={assets} onChange={setAssets} multiple
+            label="Upload clothing, shoes & accessories (up to 5 items)"
+            hint="Clothing / shoes / accessories" />
         </Section>
         <Section title="Brief">
           <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}

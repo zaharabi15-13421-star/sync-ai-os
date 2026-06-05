@@ -21,7 +21,7 @@ async function logEvent(
     await supabaseAdmin.from("auth_events").insert({
       user_id: userId,
       event_type: eventType,
-      metadata,
+      metadata: metadata as never,
       ip_address: ip ?? null,
       user_agent: ua ?? null,
     });

@@ -5,7 +5,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText, generateObject } from "ai";
 import { z } from "zod";
 import { lovableModel } from "@/lib/ai-gateway";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Use higher-tier Gemini Pro for the strongest text/structured outputs.
 const googleModel = () => lovableModel("google/gemini-2.5-pro");
@@ -14,6 +13,40 @@ function getImageGenerationErrorMessage(status: number, body: string) {
   if (status === 402) return "AI credits exhausted. Add credits in Settings → Workspace → Usage.";
   if (status === 429) return "Rate limit exceeded. Please try again in a moment.";
   return `Image generation failed (${status}): ${body.slice(0, 200)}`;
+}
+
+function getCreativeAiErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/AI credits exhausted|Payment Required|402/i.test(message)) {
+    return "AI credits exhausted. Add credits in Settings → Workspace → Usage.";
+  }
+  if (/rate limit|429/i.test(message)) {
+    return "Rate limit exceeded. Please try again in a moment.";
+  }
+  if (/LOVABLE_API_KEY|api key|unauthorized|401/i.test(message)) {
+    return "AI generation is not configured for this workspace.";
+  }
+  return "AI generation is temporarily unavailable. Please try again.";
+}
+
+async function runTextGeneration(options: any) {
+  try {
+    const result = await generateText(options);
+    return { text: result.text, error: null };
+  } catch (error) {
+    console.error("Creative text generation failed:", error);
+    return { text: null, error: getCreativeAiErrorMessage(error) };
+  }
+}
+
+async function runObjectGeneration<T>(options: any) {
+  try {
+    const result = await generateObject(options);
+    return { object: result.object as T, error: null };
+  } catch (error) {
+    console.error("Creative structured generation failed:", error);
+    return { object: null, error: getCreativeAiErrorMessage(error) };
+  }
 }
 
 // =================== TEXT GENERATION FUNCTIONS ===================

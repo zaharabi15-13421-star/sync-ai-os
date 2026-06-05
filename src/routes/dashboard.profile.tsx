@@ -332,6 +332,20 @@ function ProfilePage() {
 
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [activeSection, setActiveSection] = useState("section-company");
+  const sidebarFileRef = useRef<HTMLInputElement>(null);
+
+  const handleSidebarLogoSelect = (file: File) => {
+    if (!["image/png", "image/svg+xml", "image/jpeg"].includes(file.type)) {
+      toast.error("Invalid file type", { description: "PNG, SVG, or JPG only." });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File too large", { description: "Maximum file size is 2MB." });
+      return;
+    }
+    stageLogo(file);
+    setTimeout(() => scrollTo("section-company"), 100);
+  };
 
   // Scroll spy
   useEffect(() => {
@@ -395,6 +409,17 @@ function ProfilePage() {
         <aside className="lg:w-[260px] lg:shrink-0">
           <div className="lg:sticky lg:top-20 space-y-4">
             <div className="rounded-xl border border-white/[0.08] bg-[#161B22] p-6 text-center">
+              <input
+                ref={sidebarFileRef}
+                type="file"
+                accept="image/png,image/svg+xml,image/jpeg"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleSidebarLogoSelect(f);
+                  e.target.value = "";
+                }}
+              />
               {stagedLogoPreview || formData.logo_url ? (
                 <img src={stagedLogoPreview || formData.logo_url}
                   alt="Logo" className="h-20 w-20 rounded-full object-cover mx-auto border-2"
@@ -405,8 +430,8 @@ function ProfilePage() {
                   {initials}
                 </div>
               )}
-              <button type="button" onClick={() => scrollTo("section-company")}
-                className="text-[12px] text-[#00C9A7] hover:underline mt-2">Change photo</button>
+              <button type="button" onClick={() => sidebarFileRef.current?.click()}
+                className="text-[12px] text-[#00C9A7] hover:underline mt-2">Change Your Brand Logo</button>
               <div className="mt-3 text-[16px] font-semibold text-white truncate">{formData.company_name || "Untitled brand"}</div>
               {formData.email && <div className="text-[13px] text-[#8B949E] truncate">{formData.email}</div>}
               {formData.slogan && <div className="text-[12px] text-[#C9D1D9] mt-1 italic truncate">"{formData.slogan}"</div>}

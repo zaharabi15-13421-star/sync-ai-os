@@ -282,3 +282,32 @@
     pointer-events: none;
   }
 }
+
+/* ===== Auth modal design tokens ===== */
+:root {
+  --auth-bg-base: #0F0F1A;
+  --auth-bg-modal: #1A1A2E;
+  --auth-bg-input: #0F0F1A;
+  --auth-border: #2D2D4E;
+  --auth-purple: #7C3AED;
+  --auth-purple-light: #A78BFA;
+  --auth-purple-glow: rgba(124, 58, 237, 0.2);
+  --auth-green: #22C55E;
+  --auth-red: #EF4444;
+  --auth-amber: #F59E0B;
+  --auth-text-primary: #E2E8F0;
+  --auth-text-muted: #94A3B8;
+  --auth-text-disabled: #64748B;
+}
+@keyframes auth-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.auth-shake { animation: auth-shake 300ms ease-in-out; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-shake { animation: none; }
+}
+

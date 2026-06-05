@@ -35,36 +35,25 @@ function useGenerator() {
     setLoading(true);
     try {
       let result;
-      let fallbackGenerated = false;
       switch (kind) {
         case "caption":
           result = await generateCaption({ data: inputData });
-          if (result.error) throw new Error(result.error);
-          fallbackGenerated = !!result.fallback;
           setOutput({ caption: result.caption });
           break;
         case "hashtags":
           result = await generateHashtags({ data: inputData });
-          if (result.error) throw new Error(result.error);
-          fallbackGenerated = !!result.fallback;
           setOutput({ hashtags: result.hashtags });
           break;
         case "blog":
           result = await generateBlog({ data: inputData });
-          if (result.error) throw new Error(result.error);
-          fallbackGenerated = !!result.fallback;
           setOutput({ blogPost: result.blogPost, wordCount: result.wordCount });
           break;
         case "product-desc":
           result = await generateProductDescription({ data: inputData });
-          if (result.error) throw new Error(result.error);
-          fallbackGenerated = !!result.fallback;
           setOutput({ description: result.description });
           break;
         case "script":
           result = await generateScript({ data: inputData });
-          if (result.error) throw new Error(result.error);
-          fallbackGenerated = !!result.fallback;
           setOutput({ script: result.script });
           break;
         case "image-lab":
@@ -74,19 +63,13 @@ function useGenerator() {
         case "holography":
         case "product-photo":
           result = await generateImage({ data: { ...inputData, kind } });
-          if (result.error) {
-            setOutput({ error: result.error });
-            toast.error(result.error);
-            return;
-          }
-          fallbackGenerated = !!result.fallback;
           setOutput({ imageUrl: result.imageUrl });
           break;
         default:
           throw new Error(`Unknown generator type: ${kind}`);
       }
       setGenerated(true);
-      toast.success(fallbackGenerated ? "Generated in free mode" : "Generated with AI");
+      toast.success("Generated with AI");
     } catch (error) {
       console.error("Generation failed:", error);
       const msg = error instanceof Error ? error.message : "Failed to generate. Please try again.";
@@ -136,7 +119,7 @@ export function ImageLab() {
   const [tone, setTone] = useState("Premium");
   const [platforms, setPlatforms] = useState<string[]>(["Instagram"]);
   const [ratio, setRatio] = useState("1:1");
-  const [style, setStyle] = useState("None");
+  const [style, setStyle] = useState("Editorial");
   const [atts, setAtts] = useState<PromptAttachment[]>([]);
   const runGen = () => g.run("image-lab", { prompt, tone, style, aspectRatio: ratio, extras: { platforms }, attachments: atts });
   return (
@@ -144,8 +127,6 @@ export function ImageLab() {
       left={<>
         <Section title="Prompt">
           <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
-            label="Describe the image you want to create"
-            placeholder="e.g. A sleek smartphone on a marble surface, soft studio lighting, brand-aligned color palette"
             attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
         <Section title="Targeting">
@@ -156,7 +137,7 @@ export function ImageLab() {
             <Select value={style} onValueChange={setStyle}>
               <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {["None", "Editorial", "Cinematic", "Studio", "Lifestyle", "Bold Pop", "Soft Pastel", "Vintage Film"].map(s =>
+                {["Editorial", "Cinematic", "Studio", "Lifestyle", "Bold Pop", "Soft Pastel", "Vintage Film"].map(s =>
                   <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -178,7 +159,6 @@ export function ImageLab() {
 export function PosterStudio() {
   const g = useGenerator();
   const [logo, setLogo] = useState<File | File[] | null>(null);
-  const [person, setPerson] = useState<File | File[] | null>(null);
   const [title, setTitle] = useState("Grand Opening");
   const [subtitle, setSubtitle] = useState("This Saturday at 6 PM");
   const [desc, setDesc] = useState("Launching our flagship store with live music and gifts.");
@@ -190,23 +170,17 @@ export function PosterStudio() {
   const [colors, setColors] = useState<string[]>(["#4f46e5", "#7c3aed", "#0ea5e9", "#f8fafc"]);
   const [ratio, setRatio] = useState("4:5");
   const [atts, setAtts] = useState<PromptAttachment[]>([]);
-  const runGen = () => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, cta, date, contact, colors, hasPersonImage: !!person }, attachments: atts });
+  const runGen = () => g.run("poster", { prompt: desc, tone, style: theme, aspectRatio: ratio, extras: { title, subtitle, cta, date, contact, colors }, attachments: atts });
   return (
     <FeatureShell title="Intelligent Poster Studio" subtitle="Designed posters with smart layout, theme, and color control"
       left={<>
         <Section title="Brand">
-          <FileDrop value={logo} onChange={setLogo} label="Upload your brand logo"
-            dropHint="Drop your logo here or click to browse · JPG / PNG / SVG · Max 5MB"
-            accept="image/jpeg,image/png,image/svg+xml" hint="JPG / PNG / SVG · 5MB" />
-          <FileDrop value={person} onChange={setPerson} label="Upload a clear photo of a person or model"
-            dropHint="Drop a high-resolution, front-facing photo here, or click to browse"
-            accept="image/jpeg,image/png"
-            hint="Use a high-resolution, front-facing photo for best results · JPG / PNG · Max 10MB" />
+          <FileDrop value={logo} onChange={setLogo} label="Brand Logo" hint="JPG / PNG / SVG · 5MB" />
         </Section>
         <Section title="Content">
-          <div><FieldLabel>Poster Headline</FieldLabel><Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
-          <div><FieldLabel>Subtitle or Tagline</FieldLabel><Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
-          <PromptInput value={desc} onChange={setDesc} label="Event or Offer Description" tone={tone} onToneChange={setTone} rows={3}
+          <div><FieldLabel>Title</FieldLabel><Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
+          <div><FieldLabel>Subtitle / Tagline</FieldLabel><Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="bg-white/5 border-white/10" /></div>
+          <PromptInput value={desc} onChange={setDesc} label="Description" tone={tone} onToneChange={setTone} rows={3}
             attachments={atts} onAttachmentsChange={setAtts} />
           <div><FieldLabel>CTA (Call to Action)</FieldLabel><Input value={cta} onChange={(e) => setCta(e.target.value)} className="bg-white/5 border-white/10" placeholder="e.g. Book Your Spot, Shop Now, RSVP" /></div>
           <div className="grid grid-cols-2 gap-2">
@@ -273,13 +247,8 @@ export function VirtualTryOn() {
     <FeatureShell title="Virtual Try-On" subtitle="Fit garments and accessories on a model image"
       left={<>
         <Section title="Inputs">
-          <FileDrop value={person} onChange={setPerson}
-            label="Upload a clear full-body photo of a person"
-            dropHint="Drop a high-resolution front-facing photo here, or click to browse"
-            hint="Clear full-body photo" />
-          <FileDrop value={assets} onChange={setAssets} multiple
-            label="Upload clothing, shoes & accessories (up to 5 items)"
-            hint="Clothing / shoes / accessories" />
+          <FileDrop value={person} onChange={setPerson} label="Person Image" hint="Clear full-body photo" />
+          <FileDrop value={assets} onChange={setAssets} multiple label="Assets (max 5)" hint="Clothing / shoes / accessories" />
         </Section>
         <Section title="Brief">
           <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
@@ -314,7 +283,7 @@ export function ProductHolography() {
     <FeatureShell title="Product Holography" subtitle="Convert product photos into futuristic 3D-style holograms"
       left={<>
         <Section title="Product">
-          <FileDrop value={img} onChange={setImg} label="Upload your product photo" dropHint="Drop a clean product photo here, or click to browse — white background recommended" />
+          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" />
           <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
             attachments={atts} onAttachmentsChange={setAtts} />
         </Section>
@@ -489,7 +458,7 @@ export function BlogPilot() {
           </div>
           <div>
             <FieldLabel>Description</FieldLabel>
-            <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="bg-white/5 border-white/10" placeholder="Describe what your blog post should cover. Include your key points, target audience, and any specific angles or information you want covered." />
+            <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="bg-white/5 border-white/10" placeholder="AI will draft a description once fields are filled." />
           </div>
         </Section>
         <Button onClick={handleGenerate} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">
@@ -709,7 +678,7 @@ export function ProductDescription() {
       left={<>
         <Section title="Product">
           <div><FieldLabel>Product Name</FieldLabel><Input value={name} onChange={(e) => setName(e.target.value)} className="bg-white/5 border-white/10" /></div>
-          <PromptInput value={desc} onChange={setDesc} tone={tone} onToneChange={setTone} label="Brief product description or key selling points" placeholder="e.g. AI-powered marketing OS that replaces HubSpot, Hootsuite, Canva, and 10+ other tools in one unified platform" rows={3} />
+          <PromptInput value={desc} onChange={setDesc} tone={tone} onToneChange={setTone} label="Short Description" rows={3} />
         </Section>
         <Section title="Output">
           <div>
@@ -757,36 +726,22 @@ export function ThumbnailGenerator() {
     <FeatureShell title="Thumbnail Generator" subtitle="High-CTR YouTube thumbnails with overlay text"
       left={<>
         <Section title="Image">
-          <FileDrop value={img} onChange={setImg} label="Upload a background or reference image" dropHint="Drop your image here or click to browse · JPG / PNG" accept="image/jpeg,image/png,image/webp" />
+          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" accept="image/jpeg,image/png,image/webp" />
         </Section>
         <Section title="Thumbnail Settings">
           <div>
-            <FieldLabel hint="AI will suggest from image">Thumbnail Headline</FieldLabel>
+            <FieldLabel hint="AI will suggest from image">Headline</FieldLabel>
             <Input value={headline} onChange={(e) => setHeadline(e.target.value)} className="bg-white/5 border-white/10" />
           </div>
           <div>
-            <FieldLabel hint="Auto-suggested">Thumbnail Subheading</FieldLabel>
+            <FieldLabel hint="Auto-suggested">Subheading</FieldLabel>
             <Input value={sub} onChange={(e) => setSub(e.target.value)} className="bg-white/5 border-white/10" />
           </div>
           <div>
-            <FieldLabel>Thumbnail Style</FieldLabel>
+            <FieldLabel>Style</FieldLabel>
             <Select value={style} onValueChange={setStyle}>
               <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[
-                  { v: "Professional", d: "Clean and business-focused" },
-                  { v: "Bold", d: "Eye-catching and attention-grabbing" },
-                  { v: "Fun", d: "Playful and engaging" },
-                  { v: "Minimal", d: "Simple and elegant" },
-                ].map(s => (
-                  <SelectItem key={s.v} value={s.v}>
-                    <div className="flex flex-col">
-                      <span>{s.v}</span>
-                      <span className="text-[10px] text-muted-foreground">{s.d}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
+              <SelectContent>{["Professional","Bold","Minimal","Cinematic","Viral","Gaming","Tech","Luxury","Educational","Fun"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
@@ -840,18 +795,7 @@ export function ScriptWriter() {
   const [age, setAge] = useState("25-35");
   const [gender, setGender] = useState("All");
   const [lang, setLang] = useState("English");
-  const [goal, setGoal] = useState<string>("");
-  const [customGoals, setCustomGoals] = useState<string[]>([]);
-  const [addingGoal, setAddingGoal] = useState(false);
-  const [newGoal, setNewGoal] = useState("");
   const wordCount = Math.round(duration[0] * 150);
-
-  const DEFAULT_GOALS = [
-    "Educational", "Entertainment", "Promotional", "Tutorial",
-    "Brand Awareness", "Lead Generation", "Product Launch", "Customer Testimonial",
-    "Social Media Engagement", "Storytelling", "Event Promotion", "Training & Development",
-  ];
-  const allGoals = [...DEFAULT_GOALS, ...customGoals];
 
   const handleGenerate = () => {
     g.run("script", {
@@ -860,7 +804,6 @@ export function ScriptWriter() {
       audience,
       tone,
       language: lang,
-      ...(goal ? { videoGoal: goal } : {}),
     });
   };
 
@@ -870,65 +813,7 @@ export function ScriptWriter() {
     <FeatureShell title="Smart Script Writer" subtitle="Structured YouTube scripts — Hook, Intro, Body, CTA, Outro"
       left={<>
         <Section title="Concept">
-          <PromptInput value={topic} onChange={setTopic} tone={tone} onToneChange={setTone}
-            label="What is your video about?"
-            placeholder="e.g. How BrandSync AI replaces 10 marketing tools with one platform" />
-          <div>
-            <FieldLabel>Video Goal</FieldLabel>
-            <Select value={goal} onValueChange={(v) => { if (v !== "__add__") setGoal(v); }}>
-              <SelectTrigger className="bg-white/5 border-white/10">
-                <SelectValue placeholder="Select the primary goal of this video" />
-              </SelectTrigger>
-              <SelectContent>
-                {allGoals.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                <div className="border-t border-white/10 mt-1 pt-1">
-                  {addingGoal ? (
-                    <div className="flex items-center gap-1 px-2 py-1">
-                      <Input
-                        autoFocus
-                        value={newGoal}
-                        onChange={(e) => setNewGoal(e.target.value)}
-                        placeholder="Custom goal name"
-                        className="h-7 bg-white/5 border-white/10 text-xs"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && newGoal.trim()) {
-                            const v = newGoal.trim();
-                            setCustomGoals([...customGoals, v]);
-                            setGoal(v);
-                            setNewGoal("");
-                            setAddingGoal(false);
-                          } else if (e.key === "Escape") {
-                            setAddingGoal(false);
-                            setNewGoal("");
-                          }
-                        }}
-                      />
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
-                        if (newGoal.trim()) {
-                          const v = newGoal.trim();
-                          setCustomGoals([...customGoals, v]);
-                          setGoal(v);
-                        }
-                        setNewGoal("");
-                        setAddingGoal(false);
-                      }}>✓</Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setAddingGoal(false); setNewGoal(""); }}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAddingGoal(true); }}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-indigo-300 hover:bg-white/5 rounded"
-                    >
-                      <Plus className="h-3 w-3" /> Add custom goal
-                    </button>
-                  )}
-                </div>
-              </SelectContent>
-            </Select>
-          </div>
+          <PromptInput value={topic} onChange={setTopic} tone={tone} onToneChange={setTone} label="Video Topic / Product" />
         </Section>
         <Section title="Video Length">
           <div className="flex items-center justify-between text-xs mb-1">
@@ -942,7 +827,7 @@ export function ScriptWriter() {
         </Section>
         <Section title="Audience">
           <div>
-            <FieldLabel>Who is your target audience?</FieldLabel>
+            <FieldLabel>Audience Type</FieldLabel>
             <Input value={audience.join(", ")} onChange={(e) => setAudience(e.target.value.split(",").map(x => x.trim()))} className="bg-white/5 border-white/10" />
           </div>
           <div className="grid grid-cols-2 gap-2">

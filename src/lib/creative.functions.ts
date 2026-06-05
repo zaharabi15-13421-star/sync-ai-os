@@ -4,78 +4,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { generateText, generateObject } from "ai";
 import { z } from "zod";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway";
+import { lovableModel } from "@/lib/ai-gateway";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Use higher-tier Gemini Pro for the strongest text/structured outputs.
-const googleModel = () => {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  return apiKey ? createLovableAiGatewayProvider(apiKey)("google/gemini-2.5-pro") : null;
-};
-
-function getCreativeAiErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  if (/AI credits exhausted|Payment Required|402/i.test(message)) {
-    return "FREE_MODE_FALLBACK";
-  }
-  if (/rate limit|429/i.test(message)) {
-    return "Rate limit exceeded. Please try again in a moment.";
-  }
-  if (/LOVABLE_API_KEY|api key|unauthorized|401/i.test(message)) {
-    return "AI generation is not configured for this workspace.";
-  }
-  return "AI generation is temporarily unavailable. Please try again.";
-}
-
-function wordsFrom(input: string, fallback = "brand") {
-  const words = input.toLowerCase().match(/[a-z0-9]+/g) || [fallback];
-  return Array.from(new Set(words.filter((word) => word.length > 2))).slice(0, 12);
-}
-
-function titleCase(input: string) {
-  return input.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
-}
-
-function escapeXml(input: string) {
-  const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" };
-  return input.replace(/[&<>'"]/g, (char) => entities[char] || char);
-}
-
-function fallbackHashtags(seed: string, count = 15) {
-  const base = wordsFrom(seed, "marketing");
-  const defaults = ["BrandGrowth", "MarketingStrategy", "DigitalMarketing", "ContentMarketing", "SocialMedia", "BusinessGrowth", "CreativeStrategy", "OnlineBusiness", "BrandAwareness", "GrowthMarketing"];
-  return Array.from(new Set([...base.map(titleCase), ...defaults])).slice(0, count).map((tag) => tag.replace(/\s+/g, ""));
-}
-
-function fallbackImageDataUrl(kind: string, prompt: string, style: string, aspectRatio: string, extras?: Record<string, any>) {
-  const [w, h] = aspectRatio.includes("16:9") || aspectRatio.includes("1280") ? [1280, 720] : aspectRatio.includes("4:5") ? [1080, 1350] : aspectRatio.includes("9:16") ? [1080, 1920] : [1080, 1080];
-  const title = escapeXml(String(extras?.title || extras?.headline || titleCase(kind.replace(/-/g, " "))));
-  const subtitle = escapeXml(String(extras?.subtitle || extras?.subheading || style || "Creative Preview"));
-  const body = escapeXml(prompt.slice(0, 120));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4f46e5"/><stop offset="0.52" stop-color="#7c3aed"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient><pattern id="grid" width="72" height="72" patternUnits="userSpaceOnUse"><path d="M72 0H0v72" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="#080817"/><rect width="100%" height="100%" fill="url(#g)" opacity=".82"/><rect width="100%" height="100%" fill="url(#grid)" opacity=".5"/><circle cx="${w * 0.82}" cy="${h * 0.18}" r="${Math.min(w, h) * 0.22}" fill="rgba(255,255,255,.16)"/><rect x="${w * 0.08}" y="${h * 0.12}" width="${w * 0.84}" height="${h * 0.76}" rx="28" fill="rgba(8,8,23,.38)" stroke="rgba(255,255,255,.24)"/><text x="${w * 0.12}" y="${h * 0.25}" fill="white" font-family="Arial, sans-serif" font-size="${Math.max(34, w * 0.045)}" font-weight="800">${title}</text><text x="${w * 0.12}" y="${h * 0.34}" fill="rgba(255,255,255,.82)" font-family="Arial, sans-serif" font-size="${Math.max(20, w * 0.023)}" font-weight="600">${subtitle}</text><foreignObject x="${w * 0.12}" y="${h * 0.43}" width="${w * 0.66}" height="${h * 0.25}"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;color:rgba(255,255,255,.9);font-size:${Math.max(22, w * 0.026)}px;line-height:1.22;font-weight:700;">${body}</div></foreignObject><text x="${w * 0.12}" y="${h * 0.8}" fill="rgba(255,255,255,.74)" font-family="Arial, sans-serif" font-size="${Math.max(16, w * 0.018)}" font-weight="700">Generated in Free Mode</text></svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-async function runTextGeneration(options: any) {
-  try {
-    if (!options.model) return { text: null, error: "AI generation is not configured for this workspace." };
-    const result = await generateText(options);
-    return { text: result.text, error: null };
-  } catch (error) {
-    console.error("Creative text generation failed:", error);
-    return { text: null, error: getCreativeAiErrorMessage(error) };
-  }
-}
-
-async function runObjectGeneration<T>(options: any) {
-  try {
-    if (!options.model) return { object: null, error: "AI generation is not configured for this workspace." };
-    const result = await generateObject(options);
-    return { object: result.object as T, error: null };
-  } catch (error) {
-    console.error("Creative structured generation failed:", error);
-    return { object: null, error: getCreativeAiErrorMessage(error) };
-  }
-}
+const googleModel = () => lovableModel("google/gemini-2.5-pro");
 
 // =================== TEXT GENERATION FUNCTIONS ===================
 
@@ -95,7 +28,7 @@ export const generateCaption = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { description, platform, tone, audience, language } = data;
 
-    const result = await runTextGeneration({
+    const result = await generateText({
       model: googleModel(),
       prompt: `Generate a ${tone} social media caption for ${platform} in ${language}.
 
@@ -116,14 +49,8 @@ Requirements:
 Return ONLY the caption text - no explanation, no JSON.`,
     });
 
-    if (result.error) {
-      const tags = fallbackHashtags(`${description} ${platform}`, 6).map((tag) => `#${tag}`).join(" ");
-      return { caption: `${description}\n\nBuilt for ${platform} with a ${tone.toLowerCase()} tone. ${tags}`, error: null, fallback: true };
-    }
-
     return {
       caption: result.text,
-      error: null,
     };
   });
 
@@ -141,7 +68,7 @@ export const generateHashtags = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { industry, platform, count } = data;
 
-    const result = await runObjectGeneration<{ trending: string[]; niche: string[]; broad: string[] }>({
+    const result = await generateObject({
       model: googleModel(),
       schema: z.object({
         trending: z.array(z.string()).min(2),
@@ -158,22 +85,8 @@ Segment them into:
 Return exactly ${count} total hashtags distributed across categories. Return ONLY JSON.`,
     });
 
-    if (result.error || !result.object) {
-      const tags = fallbackHashtags(`${industry} ${platform}`, count);
-      return {
-        hashtags: {
-          trending: tags.slice(0, Math.ceil(count / 3)),
-          niche: tags.slice(Math.ceil(count / 3), Math.ceil((count * 2) / 3)),
-          broad: tags.slice(Math.ceil((count * 2) / 3), count),
-        },
-        error: null,
-        fallback: true,
-      };
-    }
-
     return {
       hashtags: result.object,
-      error: null,
     };
   });
 
@@ -199,7 +112,7 @@ export const generateBlog = createServerFn({ method: "POST" })
     const wordCountMatch = wordCount.match(/\d+-?(\d+)?/);
     const targetWords = wordCountMatch ? (wordCountMatch[2] ? ((+wordCountMatch[1] + +wordCountMatch[2]) / 2) : +wordCountMatch[1]) : 1200;
 
-    const result = await runTextGeneration({
+    const result = await generateText({
       model: googleModel(),
       prompt: `Write a ${style} blog post in ${language} approximately ${targetWords} words.
 
@@ -220,17 +133,9 @@ Format as markdown with proper heading levels (# ## ###), bullet points, and emp
 Return ONLY the blog post markdown - no explanation.`,
     });
 
-    if (result.error || !result.text) {
-      const topic = topics[0] || "Marketing Strategy";
-      const sections = Array.from({ length: headings }, (_, i) => `## ${i + 1}. ${titleCase(wordsFrom(`${topic} ${description || ""}`)[i % Math.max(1, wordsFrom(topic).length)] || "Growth")}\n\nUse this section to connect ${topic.toLowerCase()} with a clear customer problem, a practical solution, and one measurable next step.`).join("\n\n");
-      const blogPost = `# ${titleCase(topic)}\n\n${description || `A practical guide for teams working on ${topic.toLowerCase()}.`}\n\n${sections}\n\n## Conclusion\n\nTurn these ideas into a focused campaign, measure the response, and refine the message after each launch.`;
-      return { blogPost, wordCount: blogPost.split(/\s+/).length, error: null, fallback: true };
-    }
-
     return {
       blogPost: result.text,
       wordCount: result.text.split(/\s+/).length,
-      error: null,
     };
   });
 
@@ -252,7 +157,7 @@ export const generateProductDescription = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { productName, description, tone, length, keywords, style, language } = data;
 
-    const result = await runTextGeneration({
+    const result = await generateText({
       model: googleModel(),
       prompt: `Write a ${style} product description in ${language} for:
 
@@ -273,13 +178,8 @@ Create a compelling, SEO-optimized description that:
 Return ONLY the description - no explanation.`,
     });
 
-    if (result.error) {
-      return { description: `${productName}\n\n${description}\n\nKey benefits:\n- Built for ${tone.toLowerCase()} teams that need clear value fast.\n- Designed to communicate outcomes, not just features.\n- Optimized for customers comparing options and ready to act.\n\nWhy it works: this ${style.toLowerCase()} description highlights the product promise, reinforces trust, and gives buyers a simple next step.`, error: null, fallback: true };
-    }
-
     return {
       description: result.text,
-      error: null,
     };
   });
 
@@ -299,7 +199,7 @@ export const generateScript = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { topic, duration, audience, tone, language } = data;
 
-    const result = await runObjectGeneration<{ hook: string; intro: string; body: string; cta: string; outro: string }>({
+    const result = await generateObject({
       model: googleModel(),
       schema: z.object({
         hook: z.string().describe("15-second attention grabber"),
@@ -326,13 +226,8 @@ Make it engaging and ${tone}.
 Return ONLY valid JSON - no markdown, no explanation.`,
     });
 
-    if (result.error || !result.object) {
-      return { script: { hook: `What if ${topic.toLowerCase()} could be simpler than you think?`, intro: `In this video, we’ll break down ${topic} for ${audience.join(", ") || "your audience"}.`, body: `1. Define the problem clearly.\n2. Show the practical workflow.\n3. Share an example viewers can apply today.\n4. Recap the biggest takeaway.`, cta: "If this helped, save it, share it, and take the next step with your team.", outro: "Thanks for watching — use this framework in your next campaign." }, error: null, fallback: true };
-    }
-
     return {
       script: result.object,
-      error: null,
     };
   });
 
@@ -363,7 +258,7 @@ export const generateImage = createServerFn({ method: "POST" })
 
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) {
-      return { imageUrl: fallbackImageDataUrl(kind, prompt, style, aspectRatio, extras), prompt, error: null, fallback: true };
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const extrasText = extras
@@ -408,8 +303,7 @@ Make it visually striking, on-brand, and production-ready.`;
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
       headers: {
-        "Lovable-API-Key": apiKey,
-        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -417,31 +311,24 @@ Make it visually striking, on-brand, and production-ready.`;
         messages: [{ role: "user", content: userContent }],
         modalities: ["image", "text"],
       }),
-    }).catch((error) => {
-      console.error("Image generation request failed:", error);
-      return null;
     });
-
-    if (!resp) {
-      return { imageUrl: fallbackImageDataUrl(kind, prompt, style, aspectRatio, extras), prompt: fullPrompt, error: null, fallback: true };
-    }
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
-      return { imageUrl: fallbackImageDataUrl(kind, prompt, style, aspectRatio, extras), prompt: fullPrompt, error: null, fallback: true };
+      if (resp.status === 429) throw new Error("Rate limit exceeded. Please try again in a moment.");
+      if (resp.status === 402) throw new Error("AI credits exhausted. Add credits in Settings → Workspace → Usage.");
+      throw new Error(`Image generation failed (${resp.status}): ${text.slice(0, 200)}`);
     }
 
-    const json: any = await resp.json().catch(() => null);
+    const json: any = await resp.json();
     const item = json?.data?.[0];
     let imageUrl: string | null = null;
     if (item?.b64_json) imageUrl = `data:image/png;base64,${item.b64_json}`;
     else if (item?.url) imageUrl = item.url;
 
-    if (!imageUrl) {
-      return { imageUrl: fallbackImageDataUrl(kind, prompt, style, aspectRatio, extras), prompt: fullPrompt, error: null, fallback: true };
-    }
+    if (!imageUrl) throw new Error("Image generation returned no data");
 
-    return { imageUrl, prompt: fullPrompt, error: null };
+    return { imageUrl, prompt: fullPrompt };
   });
 
 // =================== ENHANCEMENT FUNCTIONS ===================
@@ -459,7 +346,7 @@ export const enhancePrompt = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { text, action } = data;
 
-    const result = await runTextGeneration({
+    const result = await generateText({
       model: googleModel(),
       prompt: `${action} the following text:
 
@@ -478,18 +365,8 @@ Make it better while keeping the core meaning. ${
 Return ONLY the enhanced text - no explanation.`,
     });
 
-    if (result.error) {
-      const enhanced = action === "Shorten"
-        ? text.split(/\s+/).slice(0, Math.max(8, Math.floor(text.split(/\s+/).length * 0.6))).join(" ")
-        : action === "Expand"
-          ? `${text}\n\nAdd a clear benefit, a specific audience, and a measurable outcome so the message feels more complete and actionable.`
-          : `${text.trim()}\n\nRefined angle: make the promise clearer, lead with the strongest benefit, and end with a concrete next step.`;
-      return { enhancedText: enhanced, error: null, fallback: true };
-    }
-
     return {
       enhancedText: result.text,
-      error: null,
     };
   });
 
@@ -506,7 +383,7 @@ export const critiqueContent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { content, platform } = data;
 
-    const result = await runObjectGeneration<{ hookStrength: number; brandVoiceMatch: number; predictedCtr: number; benchmark: number; readabilityGrade: number; seoScore: number; optimizationTip: string }>({
+    const result = await generateObject({
       model: googleModel(),
       schema: z.object({
         hookStrength: z.number().min(1).max(10),
@@ -533,13 +410,8 @@ Provide one actionable optimization tip.
 Return ONLY valid JSON - no markdown, no explanation.`,
     });
 
-    if (result.error || !result.object) {
-      return { critique: { hookStrength: 7, brandVoiceMatch: 82, predictedCtr: 3.2, benchmark: 2.1, readabilityGrade: 8, seoScore: 78, optimizationTip: "Lead with the clearest customer outcome, then add one specific proof point or example." }, error: null, fallback: true };
-    }
-
     return {
       critique: result.object,
-      error: null,
     };
   });
 
@@ -556,7 +428,7 @@ export const generateSeoKeywords = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { query, count } = data;
 
-    const result = await runObjectGeneration<{ keywords: Array<{ keyword: string; volume: number; competition: "Low" | "Medium" | "High" }> }>({
+    const result = await generateObject({
       model: googleModel(),
       schema: z.object({
         keywords: z.array(
@@ -577,13 +449,8 @@ For each keyword, provide:
 Return realistic SEO data for content optimization. Return ONLY valid JSON - no markdown.`,
     });
 
-    if (result.error || !result.object) {
-      return { keywords: fallbackHashtags(query, count).map((keyword, index) => ({ keyword: keyword.replace(/([A-Z])/g, " $1").trim().toLowerCase(), volume: 900 + index * 260, competition: index % 3 === 0 ? "High" : index % 3 === 1 ? "Medium" : "Low" as "Low" | "Medium" | "High" })), error: null, fallback: true };
-    }
-
     return {
       keywords: result.object.keywords,
-      error: null,
     };
   });
 

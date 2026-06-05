@@ -134,10 +134,6 @@ export function PromptInput({
     setBusy(action);
     try {
       const result = await enhancePrompt({ data: { text: value, action } });
-      if (result.error || !result.enhancedText) {
-        toast.error(result.error || "Failed to enhance. Please try again.");
-        return;
-      }
       push(result.enhancedText);
       toast.success(`${action}d with AI`);
     } catch (error) {
@@ -396,7 +392,7 @@ export function ColorCustomizer({ value, onChange }: { value: string[]; onChange
 
 // ====== File upload (drag-drop) ======
 export function FileDrop({
-  value, onChange, accept = "image/*", multiple = false, hint, label = "Upload", dropHint,
+  value, onChange, accept = "image/*", multiple = false, hint, label = "Upload",
 }: {
   value: File[] | File | null;
   onChange: (v: File[] | File | null) => void;
@@ -404,7 +400,6 @@ export function FileDrop({
   multiple?: boolean;
   hint?: string;
   label?: string;
-  dropHint?: string;
 }) {
   const [drag, setDrag] = useState(false);
   const files = Array.isArray(value) ? value : value ? [value] : [];
@@ -429,7 +424,7 @@ export function FileDrop({
           onChange={(e) => handleFiles(e.target.files)} />
         <ImageIcon className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
         <div className="text-muted-foreground">
-          {files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : (dropHint || "Drag & drop or click to upload")}
+          {files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : "Drag & drop or click to upload"}
         </div>
       </label>
       {files.length > 0 && (
@@ -463,7 +458,7 @@ export function SeoKeywordPicker({ value, onChange }: { value: string[]; onChang
         setLoading(true);
         try {
           const result = await generateSeoKeywords({ data: { query: q, count: 10 } });
-          setSug(result.error ? [] : result.keywords);
+          setSug(result.keywords);
         } catch (error) {
           console.error("SEO keywords failed:", error);
           setSug([]);
@@ -579,7 +574,7 @@ export function OutputPanel({
     if (generated && contentForCritique && kind !== "image") {
       setLoadingCritique(true);
       critiqueContent({ data: { content: contentForCritique } })
-        .then((result) => setCritique(result.critique ? result : null))
+        .then(setCritique)
         .catch((error) => {
           console.error("Critique failed:", error);
           setCritique(null);
@@ -649,7 +644,7 @@ export function OutputPanel({
         </AnimatePresence>
       </div>
 
-      {critique?.critique && (
+      {critique && (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-xl p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-indigo-300 mb-2">
             <Sparkles className="h-4 w-4" /> AI Critique

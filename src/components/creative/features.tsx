@@ -472,7 +472,7 @@ export function BlogPilot() {
           </div>
           <div>
             <FieldLabel>Description</FieldLabel>
-            <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="bg-white/5 border-white/10" placeholder="AI will draft a description once fields are filled." />
+            <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="bg-white/5 border-white/10" placeholder="Describe what your blog post should cover. Include your key points, target audience, and any specific angles or information you want covered." />
           </div>
         </Section>
         <Button onClick={handleGenerate} disabled={g.loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600">

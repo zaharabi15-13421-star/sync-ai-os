@@ -32,6 +32,34 @@ function getCreativeAiErrorMessage(error: unknown) {
   return "AI generation is temporarily unavailable. Please try again.";
 }
 
+function wordsFrom(input: string, fallback = "brand") {
+  const words = input.toLowerCase().match(/[a-z0-9]+/g) || [fallback];
+  return Array.from(new Set(words.filter((word) => word.length > 2))).slice(0, 12);
+}
+
+function titleCase(input: string) {
+  return input.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+}
+
+function escapeXml(input: string) {
+  return input.replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" }[char] || char));
+}
+
+function fallbackHashtags(seed: string, count = 15) {
+  const base = wordsFrom(seed, "marketing");
+  const defaults = ["BrandGrowth", "MarketingStrategy", "DigitalMarketing", "ContentMarketing", "SocialMedia", "BusinessGrowth", "CreativeStrategy", "OnlineBusiness", "BrandAwareness", "GrowthMarketing"];
+  return Array.from(new Set([...base.map(titleCase), ...defaults])).slice(0, count).map((tag) => tag.replace(/\s+/g, ""));
+}
+
+function fallbackImageDataUrl(kind: string, prompt: string, style: string, aspectRatio: string, extras?: Record<string, any>) {
+  const [w, h] = aspectRatio.includes("16:9") || aspectRatio.includes("1280") ? [1280, 720] : aspectRatio.includes("4:5") ? [1080, 1350] : aspectRatio.includes("9:16") ? [1080, 1920] : [1080, 1080];
+  const title = escapeXml(String(extras?.title || extras?.headline || titleCase(kind.replace(/-/g, " "))));
+  const subtitle = escapeXml(String(extras?.subtitle || extras?.subheading || style || "Creative Preview"));
+  const body = escapeXml(prompt.slice(0, 120));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4f46e5"/><stop offset="0.52" stop-color="#7c3aed"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient><pattern id="grid" width="72" height="72" patternUnits="userSpaceOnUse"><path d="M72 0H0v72" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="#080817"/><rect width="100%" height="100%" fill="url(#g)" opacity=".82"/><rect width="100%" height="100%" fill="url(#grid)" opacity=".5"/><circle cx="${w * 0.82}" cy="${h * 0.18}" r="${Math.min(w, h) * 0.22}" fill="rgba(255,255,255,.16)"/><rect x="${w * 0.08}" y="${h * 0.12}" width="${w * 0.84}" height="${h * 0.76}" rx="28" fill="rgba(8,8,23,.38)" stroke="rgba(255,255,255,.24)"/><text x="${w * 0.12}" y="${h * 0.25}" fill="white" font-family="Arial, sans-serif" font-size="${Math.max(34, w * 0.045)}" font-weight="800">${title}</text><text x="${w * 0.12}" y="${h * 0.34}" fill="rgba(255,255,255,.82)" font-family="Arial, sans-serif" font-size="${Math.max(20, w * 0.023)}" font-weight="600">${subtitle}</text><foreignObject x="${w * 0.12}" y="${h * 0.43}" width="${w * 0.66}" height="${h * 0.25}"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;color:rgba(255,255,255,.9);font-size:${Math.max(22, w * 0.026)}px;line-height:1.22;font-weight:700;">${body}</div></foreignObject><text x="${w * 0.12}" y="${h * 0.8}" fill="rgba(255,255,255,.74)" font-family="Arial, sans-serif" font-size="${Math.max(16, w * 0.018)}" font-weight="700">Generated in Free Mode</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 async function runTextGeneration(options: any) {
   try {
     if (!options.model) return { text: null, error: "AI generation is not configured for this workspace." };

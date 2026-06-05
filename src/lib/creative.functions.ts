@@ -12,12 +12,6 @@ const googleModel = () => {
   return apiKey ? createLovableAiGatewayProvider(apiKey)("google/gemini-2.5-pro") : null;
 };
 
-function getImageGenerationErrorMessage(status: number, body: string) {
-  if (status === 402) return "AI credits exhausted. Add credits in Settings → Workspace → Usage.";
-  if (status === 429) return "Rate limit exceeded. Please try again in a moment.";
-  return `Image generation failed (${status}): ${body.slice(0, 200)}`;
-}
-
 function getCreativeAiErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (/AI credits exhausted|Payment Required|402/i.test(message)) {
@@ -42,7 +36,8 @@ function titleCase(input: string) {
 }
 
 function escapeXml(input: string) {
-  return input.replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" }[char] || char));
+  const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" };
+  return input.replace(/[&<>'"]/g, (char) => entities[char] || char);
 }
 
 function fallbackHashtags(seed: string, count = 15) {

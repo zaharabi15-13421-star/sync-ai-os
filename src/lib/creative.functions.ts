@@ -67,7 +67,7 @@ export const generateCaption = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { description, platform, tone, audience, language } = data;
 
-    const result = await generateText({
+    const result = await runTextGeneration({
       model: googleModel(),
       prompt: `Generate a ${tone} social media caption for ${platform} in ${language}.
 
@@ -88,8 +88,11 @@ Requirements:
 Return ONLY the caption text - no explanation, no JSON.`,
     });
 
+    if (result.error) return { caption: null, error: result.error };
+
     return {
       caption: result.text,
+      error: null,
     };
   });
 
@@ -107,7 +110,7 @@ export const generateHashtags = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { industry, platform, count } = data;
 
-    const result = await generateObject({
+    const result = await runObjectGeneration<{ trending: string[]; niche: string[]; broad: string[] }>({
       model: googleModel(),
       schema: z.object({
         trending: z.array(z.string()).min(2),
@@ -124,8 +127,11 @@ Segment them into:
 Return exactly ${count} total hashtags distributed across categories. Return ONLY JSON.`,
     });
 
+    if (result.error || !result.object) return { hashtags: null, error: result.error };
+
     return {
       hashtags: result.object,
+      error: null,
     };
   });
 

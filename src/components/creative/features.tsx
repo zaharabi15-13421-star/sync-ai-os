@@ -297,7 +297,7 @@ export function ProductHolography() {
     <FeatureShell title="Product Holography" subtitle="Convert product photos into futuristic 3D-style holograms"
       left={<>
         <Section title="Product">
-          <FileDrop value={img} onChange={setImg} label="Upload Your Product or Model Image" />
+          <FileDrop value={img} onChange={setImg} label="Upload your product photo" dropHint="Drop a clean product photo here, or click to browse — white background recommended" />
           <PromptInput value={prompt} onChange={setPrompt} tone={tone} onToneChange={setTone}
             attachments={atts} onAttachmentsChange={setAtts} />
         </Section>

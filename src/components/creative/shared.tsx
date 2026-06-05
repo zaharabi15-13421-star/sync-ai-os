@@ -463,7 +463,7 @@ export function SeoKeywordPicker({ value, onChange }: { value: string[]; onChang
         setLoading(true);
         try {
           const result = await generateSeoKeywords({ data: { query: q, count: 10 } });
-          setSug(result.keywords);
+          setSug(result.error ? [] : result.keywords);
         } catch (error) {
           console.error("SEO keywords failed:", error);
           setSug([]);

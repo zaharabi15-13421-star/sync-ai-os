@@ -187,6 +187,41 @@ export const checkEmailExists = createServerFn({ method: "POST" })
 const MX_CACHE = new Map<string, { ok: boolean; expires: number }>();
 const MX_CACHE_TTL_MS = 10 * 60 * 1000;
 
+async function checkDomainDeliverable(domain: string): Promise<boolean> {
+  const d = domain.trim().toLowerCase();
+  if (!d || !d.includes(".")) return false;
+  const cached = MX_CACHE.get(d);
+  if (cached && cached.expires > Date.now()) return cached.ok;
+
+  async function doh(type: "MX" | "A" | "AAAA"): Promise<boolean> {
+    const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(d)}&type=${type}`;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 2500);
+    try {
+      const res = await fetch(url, { headers: { accept: "application/dns-json" }, signal: ctl.signal });
+      if (!res.ok) return false;
+      const json = (await res.json()) as { Status?: number; Answer?: Array<{ data: string }> };
+      if (json.Status === 3) return false;
+      return Array.isArray(json.Answer) && json.Answer.length > 0;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  try {
+    const ok = (await doh("MX")) || (await doh("A")) || (await doh("AAAA"));
+    MX_CACHE.set(d, { ok, expires: Date.now() + MX_CACHE_TTL_MS });
+    return ok;
+  } catch {
+    // On infrastructure failure, be lenient so a transient DNS hiccup doesn't
+    // block all signups. The duplicate check + real email send remain as guards.
+    return true;
+  }
+}
+
+
 export const verifyEmailDeliverable = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => checkEmailSchema.parse(input))
   .handler(async ({ data }) => {

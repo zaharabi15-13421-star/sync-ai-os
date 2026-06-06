@@ -272,6 +272,7 @@ export const checkLoginLockout = createServerFn({ method: "POST" })
   });
 
 export const recordLoginFailure = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ email: z.string().email() }).parse(input))
   .handler(async ({ data }) => {
     const ip = getIp();
@@ -324,6 +325,7 @@ export const recordLoginFailure = createServerFn({ method: "POST" })
   });
 
 export const clearLoginAttempts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ email: z.string().email() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

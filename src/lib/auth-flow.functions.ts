@@ -272,8 +272,18 @@ export const checkLoginLockout = createServerFn({ method: "POST" })
   });
 
 export const recordLoginFailure = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ email: z.string().email() }).parse(input))
+  .handler(async ({ data }) => {
+    const ip = getIp();
+    // Per-IP throttle so an attacker cannot lock arbitrary accounts at scale by
+    // hammering this endpoint with someone else's email.
+    if (!rateLimit(`lf:${ip ?? "unknown"}`, 20, 60 * 60 * 1000)) {
+      return { attempts: 0, attemptsRemaining: LOCK_THRESHOLD, lockedUntilMs: null };
+    }
+    return await _recordLoginFailureImpl(data.email, ip);
+  });
+
+async function _recordLoginFailureImpl(rawEmail: string, ip: string | null) {
   .handler(async ({ data }) => {
     const ip = getIp();
     const email = data.email.toLowerCase();

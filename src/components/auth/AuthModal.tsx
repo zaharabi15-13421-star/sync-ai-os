@@ -768,6 +768,23 @@ function VerifyScreen({
         );
       })()}
 
+      {pollingTimedOut && (
+        <div
+          className="mt-3 flex items-start gap-2 text-left"
+          style={{
+            background: "rgba(245,158,11,0.08)",
+            border: "0.5px solid rgba(245,158,11,0.25)",
+            borderRadius: 8,
+            padding: "12px 14px",
+          }}
+        >
+          <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: "#F59E0B" }} />
+          <p className="text-[12px] leading-[1.5]" style={{ color: "#F59E0B" }}>
+            Still waiting for verification. Check your spam folder or request a new link.
+          </p>
+        </div>
+      )}
+
       {/* 9. Change email button */}
       <button
         type="button"

@@ -45,7 +45,11 @@ function EmailField(props: EmailFieldProps) {
   if (state === "invalid") borderColor = "#EF4444";
   else if (state === "typo_warning") { borderColor = "#F59E0B"; boxShadow = "0 0 0 2px rgba(245,158,11,0.15)"; }
   else if (state === "valid") borderColor = "#22C55E";
+  else if (state === "checking") { borderColor = "#7C3AED"; boxShadow = "0 0 0 2px rgba(124,58,237,0.12)"; }
   else if (state === "typing") { borderColor = "#7C3AED"; boxShadow = "0 0 0 2px rgba(124,58,237,0.2)"; }
+
+  const isChecking = isCheckingDuplicate || state === "checking";
+
 
   const showLoginLink = state === "invalid" && /already exists/i.test(error ?? "");
 

@@ -1,13 +1,16 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Brain, Megaphone, Users, Contact, Star, Shield, BarChart3,
-  Layers, Atom, ArrowRight, Check, Zap, TrendingDown, X
+  Layers, Atom, ArrowRight, Check, Zap, TrendingDown, X, Lock, LayoutDashboard, LogOut
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+import type { AuthTab } from "@/types/auth";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -51,50 +54,284 @@ const TIERS = [
 
 function Landing() {
   const [demoOpen, setDemoOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<AuthTab>("signup");
+  const openAuth = (tab: AuthTab) => { setAuthTab(tab); setDemoOpen(true); };
   return (
     <div className="min-h-screen text-foreground overflow-x-hidden">
-      <Nav onOpenDemo={() => setDemoOpen(true)} />
-      <Hero onOpenDemo={() => setDemoOpen(true)} />
+      <Nav onOpenAuth={openAuth} />
+      <Hero onOpenDemo={() => openAuth("signup")} />
       <Marquee />
       <Bento />
       <ReplacementCalculator />
       <Pricing />
       <CTA />
       <Footer />
-      <AuthModal open={demoOpen} onOpenChange={setDemoOpen} />
+      <AuthModal open={demoOpen} onOpenChange={setDemoOpen} initialTab={authTab} />
     </div>
   );
 }
 
-function Nav({ onOpenDemo }: { onOpenDemo: () => void }) {
+const ghostBtnStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "0.5px solid #2D2D4E",
+  color: "#E2E8F0",
+  borderRadius: 8,
+  padding: "9px 20px",
+  fontSize: 14,
+  fontWeight: 500,
+  transition: "all 150ms ease",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+const purpleBtnStyle: React.CSSProperties = {
+  background: "#7C3AED",
+  color: "#fff",
+  border: "0.5px solid #7C3AED",
+  borderRadius: 8,
+  padding: "9px 20px",
+  fontSize: 14,
+  fontWeight: 500,
+  transition: "all 150ms ease",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+function NavButton({
+  variant, onClick, children, ariaLabel,
+}: { variant: "ghost" | "purple"; onClick?: () => void; children: React.ReactNode; ariaLabel?: string }) {
+  const [hover, setHover] = useState(false);
+  const base = variant === "ghost" ? ghostBtnStyle : purpleBtnStyle;
+  const hoverStyle: React.CSSProperties = hover
+    ? variant === "ghost"
+      ? { borderColor: "#7C3AED", color: "#A78BFA" }
+      : { filter: "brightness(1.1)" }
+    : {};
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/5 bg-[color:var(--app-bg)]/70 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 grid place-items-center glow-primary">
-            <Zap className="h-4 w-4 text-white" />
-          </div>
-          <span className="font-semibold">BrandSync <span className="text-indigo-400">AI</span></span>
-        </Link>
-        <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-          <a href="#features" className="hover:text-foreground">Platform</a>
-          <a href="#calc" className="hover:text-foreground">Replace Stack</a>
-          <a href="#pricing" className="hover:text-foreground">Pricing</a>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button
-            onClick={onOpenDemo}
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-3.5 h-9 text-sm font-medium glow-primary hover:scale-[1.02] transition"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> Register
-          </button>
-          <Link to="/dashboard/intelligence" className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 h-9 text-sm hover:bg-white/10">
-            Dashboard <ArrowRight className="h-3.5 w-3.5" />
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ ...base, ...hoverStyle }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Nav({ onOpenAuth }: { onOpenAuth: (tab: AuthTab) => void }) {
+  const { session, user } = useAuth();
+  const navigate = useNavigate();
+  const [accountPopup, setAccountPopup] = useState(false);
+  const [avatarMenu, setAvatarMenu] = useState(false);
+  const avatarRef = useRef<HTMLDivElement>(null);
+
+  // close avatar dropdown on outside click
+  useEffect(() => {
+    if (!avatarMenu) return;
+    const onClick = (e: MouseEvent) => {
+      if (!avatarRef.current?.contains(e.target as Node)) setAvatarMenu(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [avatarMenu]);
+
+  const isLoggedIn = !!session?.user;
+  const displayName = (user?.user_metadata?.full_name as string) || user?.email?.split("@")[0] || "U";
+  const initials = displayName.slice(0, 2).toUpperCase();
+  const avatarUrl = (user?.user_metadata?.avatar_url as string | undefined) || undefined;
+
+  const handleDashboardClick = () => {
+    if (isLoggedIn) navigate({ to: "/dashboard/intelligence" });
+    else setAccountPopup(true);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setAvatarMenu(false);
+    window.location.reload();
+  };
+
+  return (
+    <>
+      <nav className="sticky top-0 z-50 border-b border-white/5 bg-[color:var(--app-bg)]/70 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 grid place-items-center glow-primary">
+              <Zap className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-semibold">BrandSync <span className="text-indigo-400">AI</span></span>
           </Link>
+          <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
+            <a href="#features" className="hover:text-foreground">Platform</a>
+            <a href="#calc" className="hover:text-foreground">Replace Stack</a>
+            <a href="#pricing" className="hover:text-foreground">Pricing</a>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {!isLoggedIn ? (
+              <>
+                <NavButton variant="ghost" onClick={() => onOpenAuth("login")}>Login</NavButton>
+                <NavButton variant="purple" onClick={() => onOpenAuth("signup")}>Sign Up</NavButton>
+                <NavButton variant="ghost" onClick={handleDashboardClick}>
+                  Dashboard <ArrowRight className="h-3.5 w-3.5" />
+                </NavButton>
+              </>
+            ) : (
+              <>
+                <NavButton variant="purple" onClick={() => navigate({ to: "/dashboard/intelligence" })}>
+                  <LayoutDashboard className="h-3.5 w-3.5" /> Go to Dashboard
+                </NavButton>
+                <div ref={avatarRef} className="relative">
+                  <button
+                    type="button"
+                    aria-label="Account menu"
+                    onClick={() => setAvatarMenu((v) => !v)}
+                    style={{
+                      width: 32, height: 32, borderRadius: "50%",
+                      background: avatarUrl ? `center/cover url(${avatarUrl})` : "#2D2D4E",
+                      color: "#A78BFA", fontSize: 12, fontWeight: 600,
+                      display: "grid", placeItems: "center", cursor: "pointer",
+                    }}
+                  >
+                    {!avatarUrl && initials}
+                  </button>
+                  <AnimatePresence>
+                    {avatarMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 mt-2 w-44 overflow-hidden"
+                        style={{ background: "#1A1A2E", border: "0.5px solid #2D2D4E", borderRadius: 10, zIndex: 60 }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { setAvatarMenu(false); navigate({ to: "/dashboard/intelligence" }); }}
+                          className="w-full text-left px-3 py-2 text-[13px] flex items-center gap-2 hover:bg-white/5"
+                          style={{ color: "#E2E8F0" }}
+                        >
+                          <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSignOut}
+                          className="w-full text-left px-3 py-2 text-[13px] flex items-center gap-2 hover:bg-white/5"
+                          style={{ color: "#E2E8F0" }}
+                        >
+                          <LogOut className="h-3.5 w-3.5" /> Sign out
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      <AccountRequiredPopup
+        open={accountPopup}
+        onClose={() => setAccountPopup(false)}
+        onSignUp={() => { setAccountPopup(false); onOpenAuth("signup"); }}
+        onLogin={() => { setAccountPopup(false); onOpenAuth("login"); }}
+      />
+    </>
+  );
+}
+
+function AccountRequiredPopup({
+  open, onClose, onSignUp, onLogin,
+}: { open: boolean; onClose: () => void; onSignUp: () => void; onLogin: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(onClose, 8000);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [open, onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={ref}
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="account-required-title"
+          style={{
+            position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)",
+            background: "#1A1A2E", border: "0.5px solid #7C3AED", borderRadius: 12,
+            padding: "20px 24px", maxWidth: 360, width: "calc(100% - 32px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)", zIndex: 1001,
+          }}
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            style={{ position: "absolute", top: 12, right: 12, color: "#64748B", cursor: "pointer", background: "transparent", border: "none" }}
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex justify-center">
+            <Lock className="h-5 w-5" style={{ color: "#A78BFA" }} />
+          </div>
+          <h3
+            id="account-required-title"
+            className="text-center"
+            style={{ marginTop: 8, fontSize: 16, fontWeight: 500, color: "#E2E8F0" }}
+          >
+            Account required
+          </h3>
+          <p
+            className="text-center"
+            style={{ marginTop: 6, fontSize: 13, color: "#94A3B8", lineHeight: 1.6 }}
+          >
+            You need an account to access the BrandSync AI dashboard. Sign up free or log in to continue.
+          </p>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={onSignUp}
+              style={{
+                flex: 1, background: "#7C3AED", color: "#fff", borderRadius: 8,
+                padding: "9px 0", fontSize: 13, fontWeight: 500, border: "none", cursor: "pointer",
+              }}
+            >
+              Sign Up Free
+            </button>
+            <button
+              type="button"
+              onClick={onLogin}
+              style={{
+                flex: 1, background: "transparent", border: "0.5px solid #2D2D4E", color: "#E2E8F0",
+                borderRadius: 8, padding: "9px 0", fontSize: 13, cursor: "pointer",
+              }}
+            >
+              Log In
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

@@ -164,22 +164,29 @@ interface AuthModalProps {
 const DASHBOARD_PATH = "/dashboard/intelligence";
 
 export function AuthModal({ open, onOpenChange, initialTab = "signup" }: AuthModalProps) {
-  const [screen, setScreen] = useState<AuthScreen>("entry");
+  const [screen, setScreen] = useState<AuthScreen>(initialTab === "login" ? "login" : "entry");
   const [tab, setTab] = useState<AuthTab>(initialTab);
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [registeredUserId, setRegisteredUserId] = useState<string | null>(null);
   const [resetEmail, setResetEmail] = useState("");
   const startTimeRef = useRef<number>(Date.now());
+  const navigate = useNavigate();
 
-  // Reset when opened
+  // Reset on open + bounce already-logged-in users
   useEffect(() => {
-    if (open) {
-      setScreen("entry");
-      setTab(initialTab);
-      startTimeRef.current = Date.now();
-      logAuthEventFn({ data: { eventType: "modal_opened", metadata: { source: "direct" } } }).catch(() => {});
-    }
-  }, [open, initialTab]);
+    if (!open) return;
+    setScreen(initialTab === "login" ? "login" : "entry");
+    setTab(initialTab);
+    startTimeRef.current = Date.now();
+    logAuthEventFn({ data: { eventType: "modal_opened", metadata: { source: "direct" } } }).catch(() => {});
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user;
+      if (u && u.email_confirmed_at) {
+        onOpenChange(false);
+        navigate({ to: DASHBOARD_PATH });
+      }
+    }).catch(() => {});
+  }, [open, initialTab, onOpenChange, navigate]);
 
   // Close handlers
   const close = useCallback(() => {
@@ -339,31 +346,8 @@ function EntryScreen({
         </p>
       </header>
 
-      <div
-        className="flex p-[3px] mb-5"
-        style={{ background: "var(--auth-bg-base)", borderRadius: 10 }}
-        role="tablist"
-      >
-        {(["signup", "login"] as AuthTab[]).map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className="flex-1 py-2 text-[14px] transition-colors"
-            style={{
-              background: tab === t ? "var(--auth-border)" : "transparent",
-              borderRadius: 8,
-              color: tab === t ? "var(--auth-text-primary)" : "var(--auth-text-muted)",
-              fontWeight: tab === t ? 500 : 400,
-            }}
-          >
-            {t === "signup" ? "Sign up" : "Log in"}
-          </button>
-        ))}
-      </div>
-
       <div className="space-y-3">
+
         <GoogleOAuthButton onClick={handleGoogle} loading={googleLoading} />
         <AuthDivider />
         <button

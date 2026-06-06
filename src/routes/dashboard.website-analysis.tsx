@@ -71,10 +71,10 @@ function WebsiteIntelligencePage() {
       {/* Header */}
       <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-transparent p-6 md:p-8">
         <div className="inline-flex items-center gap-2 rounded-full border border-purple-400/30 bg-purple-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-purple-200">
-          <Sparkles className="h-3 w-3" /> Website Intelligence
+          <Sparkles className="h-3 w-3" /> Brand DNA
         </div>
         <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight">
-          Understand Your Website in Seconds
+          Understand Your Brand DNA in Seconds
         </h1>
         <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
           Get a clear, plain-English read on your brand, SEO and competitors — built for founders, not marketers.

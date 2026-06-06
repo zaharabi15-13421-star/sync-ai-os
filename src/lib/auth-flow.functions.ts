@@ -358,8 +358,10 @@ export const markEmailVerified = createServerFn({ method: "POST" })
   });
 
 // ---------- logAuthEventFn (client-callable) ---------- //
+// No auth required — these are pre-auth audit breadcrumbs (form opened, signup attempted, etc).
+// SECURITY: never trust client-supplied userId. If a valid session header is present we derive
+// the userId from it; otherwise the event is recorded as anonymous (user_id = null).
 export const logAuthEventFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -368,9 +370,30 @@ export const logAuthEventFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
-    // Always use the authenticated userId — never trust client-supplied IDs.
-    await logEvent((context as any).userId ?? null, data.eventType, data.metadata ?? {}, getIp(), getUa());
+  .handler(async ({ data }) => {
+    let userId: string | null = null;
+    try {
+      const authHeader = getRequestHeader("authorization") || getRequestHeader("Authorization");
+      if (authHeader?.toLowerCase().startsWith("bearer ")) {
+        const token = authHeader.slice(7).trim();
+        const { createClient } = await import("@supabase/supabase-js");
+        const url = process.env.SUPABASE_URL;
+        const key = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+        if (url && key && token) {
+          const sb = createClient(url, key);
+          const { data: u } = await sb.auth.getUser(token);
+          userId = u?.user?.id ?? null;
+        }
+      }
+    } catch {
+      userId = null;
+    }
+    // Soft IP rate limit to prevent log flooding
+    const ip = getIp();
+    if (!rateLimit(`evt:${ip ?? "unknown"}`, 60, 60 * 1000)) {
+      return { ok: true };
+    }
+    await logEvent(userId, data.eventType, data.metadata ?? {}, ip, getUa());
     return { ok: true };
   });
 

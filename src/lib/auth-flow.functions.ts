@@ -76,6 +76,19 @@ export const registerUser = createServerFn({ method: "POST" })
     if (isDisposableEmail(normalizedEmail)) throw new Error("disposable_email");
     data.email = normalizedEmail;
 
+    // Verify domain has working DNS/MX so we don't create accounts for
+    // non-existent mailboxes like akashchopra@gamil-typo-domain.xyz
+    const at = normalizedEmail.lastIndexOf("@");
+    const domain = at >= 0 ? normalizedEmail.slice(at + 1) : "";
+    if (domain) {
+      const ok = await checkDomainDeliverable(domain);
+      if (!ok) {
+        await logEvent(null, "registration_form_error", { reason: "undeliverable_email_domain" }, ip, ua);
+        throw new Error("undeliverable_email");
+      }
+    }
+
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
 

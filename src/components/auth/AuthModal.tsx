@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Mail, CheckCircle2, KeyRound, LockOpen, AlertCircle, Loader2, ShieldCheck, RefreshCw, Pencil, HelpCircle } from "lucide-react";
+import { X, Sparkles, Mail, CheckCircle2, KeyRound, LockOpen, AlertCircle, AlertTriangle, Loader2, Check, ShieldCheck, RefreshCw, Pencil, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import {
@@ -17,7 +17,135 @@ import {
   registerUser, checkEmailExists, recordLoginFailure, clearLoginAttempts,
   checkLoginLockout, markEmailVerified, requestPasswordReset, logAuthEventFn,
 } from "@/lib/auth-flow.functions";
+import { useEmailValidation, type EmailState } from "@/hooks/useEmailValidation";
 import { INDUSTRIES, TEAM_SIZES, type AuthScreen, type AuthTab, type RegistrationErrors, type RegistrationFormValues } from "@/types/auth";
+
+// ============================================================
+// EmailField — strict validation + typo detection
+// ============================================================
+interface EmailFieldProps {
+  value: string;
+  state: EmailState;
+  error: string | null;
+  typoSuggestion: { suggested: string; domain: string } | null;
+  isCheckingDuplicate: boolean;
+  duplicateExists: boolean;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+  onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  onAcceptTypo: () => void;
+  onDismissTypo: () => void;
+  onLoginWithEmail?: () => void;
+}
+
+function EmailField(props: EmailFieldProps) {
+  const { value, state, error, typoSuggestion, isCheckingDuplicate, onChange, onBlur, onPaste, onAcceptTypo, onDismissTypo, onLoginWithEmail } = props;
+  let borderColor = "var(--auth-border)";
+  let boxShadow: string | undefined;
+  if (state === "invalid") borderColor = "#EF4444";
+  else if (state === "typo_warning") { borderColor = "#F59E0B"; boxShadow = "0 0 0 2px rgba(245,158,11,0.15)"; }
+  else if (state === "valid") borderColor = "#22C55E";
+  else if (state === "typing") { borderColor = "#7C3AED"; boxShadow = "0 0 0 2px rgba(124,58,237,0.2)"; }
+
+  const showLoginLink = state === "invalid" && /already exists/i.test(error ?? "");
+
+  return (
+    <div>
+      <Label required>Email</Label>
+      <div className="relative">
+        <input
+          type="email"
+          id="email"
+          name="email"
+          autoComplete="email"
+          placeholder="you@brand.com"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          onPaste={onPaste}
+          aria-required="true"
+          aria-invalid={state === "invalid" || state === "typo_warning"}
+          aria-describedby={error || typoSuggestion ? "email-error" : undefined}
+          style={{
+            background: "var(--auth-bg-input)",
+            border: `0.5px solid ${borderColor}`,
+            borderRadius: 8,
+            padding: "11px 40px 11px 14px",
+            color: "var(--auth-text-primary)",
+            fontSize: 14,
+            width: "100%",
+            outline: "none",
+            boxShadow,
+            transition: "border-color 150ms ease, box-shadow 150ms ease",
+          }}
+        />
+        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+          {isCheckingDuplicate && <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#94A3B8" }} />}
+          {!isCheckingDuplicate && state === "valid" && <Check className="h-4 w-4" style={{ color: "#22C55E" }} />}
+          {!isCheckingDuplicate && state === "invalid" && <AlertCircle className="h-4 w-4" style={{ color: "#EF4444" }} />}
+          {!isCheckingDuplicate && state === "typo_warning" && <AlertTriangle className="h-4 w-4" style={{ color: "#F59E0B" }} />}
+        </div>
+      </div>
+
+      {isCheckingDuplicate && (
+        <p className="mt-1 text-[11px]" style={{ color: "#64748B" }}>Checking availability…</p>
+      )}
+
+      {error && !typoSuggestion && (
+        <div id="email-error" role="alert" aria-live="polite" aria-atomic="true" className="mt-1 text-[12px]" style={{ color: "#EF4444" }}>
+          {error}
+          {showLoginLink && onLoginWithEmail && (
+            <>
+              {" "}
+              <button type="button" onClick={onLoginWithEmail} className="underline" style={{ color: "#A78BFA" }}>
+                Log in instead?
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {typoSuggestion && (
+        <div
+          id="email-error"
+          role="status"
+          aria-live="polite"
+          className="mt-1"
+          style={{
+            background: "rgba(245,158,11,0.08)",
+            border: "0.5px solid rgba(245,158,11,0.25)",
+            borderRadius: 6,
+            padding: "8px 12px",
+          }}
+        >
+          <div className="text-[12px] font-medium" style={{ color: "#F59E0B" }}>
+            Did you mean {typoSuggestion.suggested}?
+          </div>
+          <button
+            type="button"
+            onClick={onAcceptTypo}
+            aria-label={`Use suggested email ${typoSuggestion.suggested}`}
+            className="text-[12px] underline mt-0.5"
+            style={{ color: "#A78BFA", cursor: "pointer" }}
+          >
+            Use {typoSuggestion.suggested}
+          </button>
+          <div>
+            <button
+              type="button"
+              onClick={onDismissTypo}
+              aria-label="Keep my email address as entered"
+              className="text-[11px] mt-1"
+              style={{ color: "#64748B", cursor: "pointer" }}
+            >
+              No, my email is correct →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface AuthModalProps {
   open: boolean;

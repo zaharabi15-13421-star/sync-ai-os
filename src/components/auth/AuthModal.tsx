@@ -186,14 +186,11 @@ export function AuthModal({ open, onOpenChange, initialTab = "signup" }: AuthMod
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [open, close]);
+  }, [open]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -201,11 +198,11 @@ export function AuthModal({ open, onOpenChange, initialTab = "signup" }: AuthMod
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.7)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) close(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
     >
+
       <AnimatePresence mode="wait">
         <motion.div
           key={screen}

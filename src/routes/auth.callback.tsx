@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AUTH_BROADCAST_CHANNEL } from "@/hooks/useEmailVerificationDetection";
 
@@ -9,7 +9,7 @@ const POST_AUTH_REDIRECT_KEY = "brandsync_post_auth_redirect";
 const DASHBOARD_PATH = "/dashboard/intelligence";
 const AUTO_REDIRECT_MS = 2500;
 
-type CallbackState = "processing" | "success" | "already_verified" | "error";
+type CallbackState = "processing" | "success";
 
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
@@ -17,19 +17,10 @@ export const Route = createFileRoute("/auth/callback")({
 
 function AuthCallback() {
   const [state, setState] = useState<CallbackState>("processing");
-  const [errorMessage, setErrorMessage] = useState<string>(
-    "This verification link has expired or is no longer valid. Please request a new one.",
-  );
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-
-    const processingTimeout = setTimeout(() => {
-      if (!cancelled && state === "processing") {
-        setState("error");
-      }
-    }, 5000);
 
     const broadcastVerified = (userId: string, email: string | undefined) => {
       try {
@@ -48,7 +39,11 @@ function AuthCallback() {
     const goToDashboard = () => {
       const redirectPath = localStorage.getItem(POST_AUTH_REDIRECT_KEY) ?? DASHBOARD_PATH;
       localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
-      window.location.href = redirectPath;
+      window.location.replace(redirectPath);
+    };
+
+    const goHome = () => {
+      window.location.replace("/");
     };
 
     const run = async () => {
@@ -63,21 +58,12 @@ function AuthCallback() {
         const tokenHash = searchParams.get("token_hash");
         const type = searchParams.get("type") as "signup" | "magiclink" | "recovery" | "email" | null;
         const errParam = hashParams.get("error") ?? searchParams.get("error");
-        const errDesc =
-          hashParams.get("error_description") ?? searchParams.get("error_description");
 
         if (errParam) {
-          if (!cancelled) {
-            setErrorMessage(
-              errDesc?.replace(/\+/g, " ") ??
-                "This verification link has expired or is no longer valid. Please request a new one.",
-            );
-            setState("error");
-          }
+          if (!cancelled) goHome();
           return;
         }
 
-        // Try exchanges in order
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
@@ -92,7 +78,6 @@ function AuthCallback() {
           if (error) throw error;
         }
 
-        // Clear sensitive params from URL
         window.history.replaceState(null, "", window.location.pathname);
 
         const { data, error: sessionError } = await supabase.auth.getSession();
@@ -100,32 +85,35 @@ function AuthCallback() {
         const session = data.session;
 
         if (!session?.user) {
-          if (!cancelled) setState("error");
+          if (!cancelled) goHome();
           return;
         }
 
         const user = session.user;
 
         if (!user.email_confirmed_at) {
-          if (!cancelled) {
-            setErrorMessage("Your email could not be confirmed. Please try again.");
-            setState("error");
-          }
+          if (!cancelled) goHome();
           return;
         }
 
-        const confirmedAt = new Date(user.email_confirmed_at).getTime();
-        const isFresh = Date.now() - confirmedAt < 30_000;
+        // Detect OAuth (Google) sign-in vs. email verification
+        const provider =
+          (user.app_metadata?.provider as string | undefined) ??
+          user.identities?.[0]?.provider;
+        const isOAuth = provider && provider !== "email";
 
-        // Fire-and-forget: mark email verified in profile + log event
+        const confirmedAt = new Date(user.email_confirmed_at).getTime();
+        const isFreshEmailVerification = !isOAuth && Date.now() - confirmedAt < 30_000;
+
         void supabase
           .from("profiles")
           .update({ updated_at: new Date().toISOString() })
           .eq("id", user.id)
           .then(() => undefined, () => undefined);
 
-        if (!isFresh) {
-          if (!cancelled) setState("already_verified");
+        // OAuth logins and previously-verified users: redirect directly, no popup
+        if (!isFreshEmailVerification) {
+          if (!cancelled) goToDashboard();
           return;
         }
 
@@ -137,7 +125,7 @@ function AuthCallback() {
         }
       } catch (err) {
         console.error("[auth callback] failed", err);
-        if (!cancelled) setState("error");
+        if (!cancelled) goHome();
       }
     };
 
@@ -145,7 +133,6 @@ function AuthCallback() {
 
     return () => {
       cancelled = true;
-      clearTimeout(processingTimeout);
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,7 +152,7 @@ function AuthCallback() {
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-10 w-10 animate-spin" style={{ color: "#7C3AED" }} />
           <p className="text-[14px]" style={{ color: "#94A3B8" }}>
-            Verifying your email…
+            Signing you in…
           </p>
         </div>
       )}
@@ -239,94 +226,6 @@ function AuthCallback() {
           >
             Enter dashboard →
           </button>
-        </div>
-      )}
-
-      {state === "already_verified" && (
-        <div
-          className="text-center w-full"
-          style={{
-            maxWidth: 400,
-            background: "#1A1A2E",
-            border: "0.5px solid rgba(34,197,94,0.4)",
-            borderRadius: 16,
-            padding: "32px 28px",
-          }}
-        >
-          <CheckCircle2 className="h-8 w-8 mx-auto" style={{ color: "#22C55E" }} />
-          <h1 className="text-[18px] font-medium" style={{ color: "#E2E8F0", marginTop: 16 }}>
-            Already verified!
-          </h1>
-          <p className="text-[13px]" style={{ color: "#94A3B8", marginTop: 8, lineHeight: 1.6 }}>
-            Your email is already confirmed. Head to your dashboard to continue.
-          </p>
-          <button
-            type="button"
-            onClick={() => (window.location.href = DASHBOARD_PATH)}
-            className="w-full text-white"
-            style={{
-              background: "#7C3AED",
-              borderRadius: 10,
-              padding: "13px 24px",
-              fontSize: 14,
-              fontWeight: 500,
-              marginTop: 20,
-            }}
-          >
-            Go to dashboard
-          </button>
-        </div>
-      )}
-
-      {state === "error" && (
-        <div
-          className="text-center w-full"
-          style={{
-            maxWidth: 400,
-            background: "#1A1A2E",
-            border: "0.5px solid rgba(239,68,68,0.4)",
-            borderRadius: 16,
-            padding: "32px 28px",
-          }}
-        >
-          <AlertCircle className="h-8 w-8 mx-auto" style={{ color: "#EF4444" }} />
-          <h1 className="text-[18px] font-medium" style={{ color: "#E2E8F0", marginTop: 16 }}>
-            Verification failed
-          </h1>
-          <p className="text-[13px]" style={{ color: "#94A3B8", marginTop: 8, lineHeight: 1.6 }}>
-            {errorMessage}
-          </p>
-          <Link
-            to="/"
-            className="block w-full text-white"
-            style={{
-              background: "#7C3AED",
-              borderRadius: 10,
-              padding: "13px 24px",
-              fontSize: 14,
-              fontWeight: 500,
-              marginTop: 20,
-              textDecoration: "none",
-            }}
-          >
-            Request new link
-          </Link>
-          <Link
-            to="/"
-            className="block w-full"
-            style={{
-              background: "transparent",
-              border: "0.5px solid #2D2D4E",
-              color: "#94A3B8",
-              borderRadius: 10,
-              padding: "11px 24px",
-              fontSize: 13,
-              marginTop: 10,
-              textDecoration: "none",
-            }}
-          >
-            Back to home
-          </Link>
         </div>
       )}
     </main>

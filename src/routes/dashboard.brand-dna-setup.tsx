@@ -84,7 +84,7 @@ function StatusPill({ status }: { status: string }) {
 function BrandDnaSetupPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, _setStep] = useState<1 | 2>(2);
 
   const fetchDna = useServerFn(getBrandDna);
   const { data, isLoading } = useQuery({

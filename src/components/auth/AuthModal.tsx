@@ -540,6 +540,9 @@ function RegisterScreen({ onBack, onDone }: { onBack: () => void; onDone: (email
             onAcceptTypo={email.acceptTypoSuggestion}
             onDismissTypo={email.dismissTypoWarning}
           />
+          {errors.email && !email.emailError && (
+            <p role="alert" className="mt-1 text-[12px]" style={{ color: "#EF4444" }}>{errors.email}</p>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <SelectField

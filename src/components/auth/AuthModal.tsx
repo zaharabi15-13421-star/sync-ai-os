@@ -488,6 +488,9 @@ function RegisterScreen({ onBack, onDone }: { onBack: () => void; onDone: (email
         setErrors((er) => ({ ...er, email: "Please use a permanent email address to create your account" }));
       } else if (msg === "invalid_email_format" || msg === "email_too_long") {
         setErrors((er) => ({ ...er, email: "Please enter a valid email address" }));
+      } else if (msg === "undeliverable_email") {
+        setErrors((er) => ({ ...er, email: "This email domain doesn't exist or can't receive mail. Please check the spelling." }));
+
       } else {
         toast.error("Couldn't create your account", { description: msg });
       }

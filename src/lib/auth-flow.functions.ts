@@ -280,12 +280,6 @@ export const recordLoginFailure = createServerFn({ method: "POST" })
     if (!rateLimit(`lf:${ip ?? "unknown"}`, 20, 60 * 60 * 1000)) {
       return { attempts: 0, attemptsRemaining: LOCK_THRESHOLD, lockedUntilMs: null };
     }
-    return await _recordLoginFailureImpl(data.email, ip);
-  });
-
-async function _recordLoginFailureImpl(rawEmail: string, ip: string | null) {
-  .handler(async ({ data }) => {
-    const ip = getIp();
     const email = data.email.toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: existing } = await supabaseAdmin
@@ -333,6 +327,7 @@ async function _recordLoginFailureImpl(rawEmail: string, ip: string | null) {
       lockedUntilMs: lockedUntil ? lockedUntil.getTime() : null,
     };
   });
+
 
 export const clearLoginAttempts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

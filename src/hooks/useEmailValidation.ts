@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { checkEmailExists } from "@/lib/auth-flow.functions";
+import { checkEmailExists, verifyEmailDeliverable } from "@/lib/auth-flow.functions";
 import {
   validateEmailFormat,
   detectEmailTypo,
   type EmailFormatResult,
 } from "@/utils/emailValidator";
 
-export type EmailState = "empty" | "typing" | "invalid" | "typo_warning" | "valid";
+export type EmailState = "empty" | "typing" | "invalid" | "typo_warning" | "checking" | "valid";
+
 
 export interface UseEmailValidationResult {
   emailValue: string;
@@ -53,6 +54,10 @@ export function useEmailValidation(): UseEmailValidationResult {
   const dupCacheRef = useRef<DupCache | null>(null);
   const dupCallCount = useRef(0);
   const checkEmailFn = useServerFn(checkEmailExists);
+  const verifyDeliverableFn = useServerFn(verifyEmailDeliverable);
+  const deliverabilityCache = useRef<Map<string, boolean>>(new Map());
+  const deliverabilityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   useEffect(() => {
     return () => {
@@ -115,6 +120,56 @@ export function useEmailValidation(): UseEmailValidationResult {
     [applyFormat, duplicateExists],
   );
 
+  const runDeliverabilityCheck = useCallback(
+    async (value: string): Promise<boolean> => {
+      const lower = value.trim().toLowerCase();
+      const at = lower.lastIndexOf("@");
+      if (at < 0) return true;
+      const domain = lower.slice(at + 1);
+      const cached = deliverabilityCache.current.get(domain);
+      if (cached !== undefined) {
+        if (!cached) {
+          setEmailState("invalid");
+          setEmailError("This email domain doesn't exist or can't receive mail. Please check the spelling.");
+          setTypo(null);
+        }
+        return cached;
+      }
+      setEmailState("checking");
+      try {
+        const result = await Promise.race<
+          { deliverable: boolean; checked: boolean } | "timeout"
+        >([
+          verifyDeliverableFn({ data: { email: lower } }),
+          new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 3500)),
+        ]);
+        if (result === "timeout") {
+          // Lenient: server will recheck on submit
+          setEmailState("valid");
+          setEmailError(null);
+          return true;
+        }
+        if (result.checked) {
+          deliverabilityCache.current.set(domain, result.deliverable);
+        }
+        if (!result.deliverable) {
+          setEmailState("invalid");
+          setEmailError("This email domain doesn't exist or can't receive mail. Please check the spelling.");
+          setTypo(null);
+          return false;
+        }
+        setEmailState("valid");
+        setEmailError(null);
+        return true;
+      } catch {
+        setEmailState("valid");
+        setEmailError(null);
+        return true;
+      }
+    },
+    [verifyDeliverableFn],
+  );
+
   const runDuplicateCheck = useCallback(
     async (value: string) => {
       const lower = value.trim().toLowerCase();
@@ -137,7 +192,6 @@ export function useEmailValidation(): UseEmailValidationResult {
           new Promise<"timeout">((r) => setTimeout(() => r("timeout"), DUP_TIMEOUT_MS)),
         ]);
         if (result === "timeout") {
-          // Be lenient — server will check on submit
           return;
         }
         dupCacheRef.current = { email: lower, exists: result.exists, timestamp: Date.now() };
@@ -154,6 +208,7 @@ export function useEmailValidation(): UseEmailValidationResult {
     },
     [checkEmailFn],
   );
+
 
   const handleEmailChange = useCallback(
     (value: string) => {
@@ -186,6 +241,7 @@ export function useEmailValidation(): UseEmailValidationResult {
     blurredOnce.current = true;
     if (typingTimer.current) clearTimeout(typingTimer.current);
     if (dupTimer.current) clearTimeout(dupTimer.current);
+    if (deliverabilityTimer.current) clearTimeout(deliverabilityTimer.current);
     computeState(emailValue, true);
     const fmt = applyFormat(emailValue);
     const lower = emailValue.trim().toLowerCase();
@@ -194,9 +250,13 @@ export function useEmailValidation(): UseEmailValidationResult {
       if (typo.isTypo) return;
     }
     if (fmt.valid) {
-      dupTimer.current = setTimeout(() => runDuplicateCheck(emailValue), DUP_DEBOUNCE_MS);
+      deliverabilityTimer.current = setTimeout(async () => {
+        const ok = await runDeliverabilityCheck(emailValue);
+        if (ok) runDuplicateCheck(emailValue);
+      }, 300);
     }
-  }, [emailValue, computeState, applyFormat, runDuplicateCheck]);
+  }, [emailValue, computeState, applyFormat, runDeliverabilityCheck, runDuplicateCheck]);
+
 
   const handleEmailPaste = useCallback(
     (_e: React.ClipboardEvent<HTMLInputElement>) => {

@@ -76,6 +76,19 @@ export const registerUser = createServerFn({ method: "POST" })
     if (isDisposableEmail(normalizedEmail)) throw new Error("disposable_email");
     data.email = normalizedEmail;
 
+    // Verify domain has working DNS/MX so we don't create accounts for
+    // non-existent mailboxes like akashchopra@gamil-typo-domain.xyz
+    const at = normalizedEmail.lastIndexOf("@");
+    const domain = at >= 0 ? normalizedEmail.slice(at + 1) : "";
+    if (domain) {
+      const ok = await checkDomainDeliverable(domain);
+      if (!ok) {
+        await logEvent(null, "registration_form_error", { reason: "undeliverable_email_domain" }, ip, ua);
+        throw new Error("undeliverable_email");
+      }
+    }
+
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
 
@@ -166,6 +179,68 @@ export const checkEmailExists = createServerFn({ method: "POST" })
 
     return { exists: Boolean(row) };
   });
+
+// ---------- verifyEmailDeliverable (DNS MX check via DoH) ---------- //
+// Confirms the email's domain actually exists and can receive mail. Uses
+// Cloudflare DNS-over-HTTPS, which works inside the Worker runtime where
+// node:dns is not available.
+const MX_CACHE = new Map<string, { ok: boolean; expires: number }>();
+const MX_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function checkDomainDeliverable(domain: string): Promise<boolean> {
+  const d = domain.trim().toLowerCase();
+  if (!d || !d.includes(".")) return false;
+  const cached = MX_CACHE.get(d);
+  if (cached && cached.expires > Date.now()) return cached.ok;
+
+  async function doh(type: "MX" | "A" | "AAAA"): Promise<boolean> {
+    const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(d)}&type=${type}`;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 2500);
+    try {
+      const res = await fetch(url, { headers: { accept: "application/dns-json" }, signal: ctl.signal });
+      if (!res.ok) return false;
+      const json = (await res.json()) as { Status?: number; Answer?: Array<{ data: string }> };
+      if (json.Status === 3) return false;
+      return Array.isArray(json.Answer) && json.Answer.length > 0;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  try {
+    const ok = (await doh("MX")) || (await doh("A")) || (await doh("AAAA"));
+    MX_CACHE.set(d, { ok, expires: Date.now() + MX_CACHE_TTL_MS });
+    return ok;
+  } catch {
+    // On infrastructure failure, be lenient so a transient DNS hiccup doesn't
+    // block all signups. The duplicate check + real email send remain as guards.
+    return true;
+  }
+}
+
+
+export const verifyEmailDeliverable = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => checkEmailSchema.parse(input))
+  .handler(async ({ data }) => {
+    const ip = getIp();
+    if (!rateLimit(`mx:${ip ?? "unknown"}`, 30, 60 * 1000)) {
+      return { deliverable: true, checked: false };
+    }
+    const email = data.email.trim().toLowerCase();
+    const at = email.lastIndexOf("@");
+    if (at < 0) return { deliverable: false, checked: true, reason: "format" as const };
+    const domain = email.slice(at + 1);
+    if (!domain || !domain.includes(".")) {
+      return { deliverable: false, checked: true, reason: "format" as const };
+    }
+    const ok = await checkDomainDeliverable(domain);
+    return { deliverable: ok, checked: true, reason: ok ? undefined : ("no_mx" as const) };
+  });
+
+
 
 // ---------- recordLoginAttempt / checkLockout ---------- //
 const LOCK_THRESHOLD = 5;

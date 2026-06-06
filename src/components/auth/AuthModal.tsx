@@ -45,7 +45,11 @@ function EmailField(props: EmailFieldProps) {
   if (state === "invalid") borderColor = "#EF4444";
   else if (state === "typo_warning") { borderColor = "#F59E0B"; boxShadow = "0 0 0 2px rgba(245,158,11,0.15)"; }
   else if (state === "valid") borderColor = "#22C55E";
+  else if (state === "checking") { borderColor = "#7C3AED"; boxShadow = "0 0 0 2px rgba(124,58,237,0.12)"; }
   else if (state === "typing") { borderColor = "#7C3AED"; boxShadow = "0 0 0 2px rgba(124,58,237,0.2)"; }
+
+  const isChecking = isCheckingDuplicate || state === "checking";
+
 
   const showLoginLink = state === "invalid" && /already exists/i.test(error ?? "");
 
@@ -80,16 +84,19 @@ function EmailField(props: EmailFieldProps) {
           }}
         />
         <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-          {isCheckingDuplicate && <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#94A3B8" }} />}
-          {!isCheckingDuplicate && state === "valid" && <Check className="h-4 w-4" style={{ color: "#22C55E" }} />}
-          {!isCheckingDuplicate && state === "invalid" && <AlertCircle className="h-4 w-4" style={{ color: "#EF4444" }} />}
-          {!isCheckingDuplicate && state === "typo_warning" && <AlertTriangle className="h-4 w-4" style={{ color: "#F59E0B" }} />}
+          {isChecking && <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#94A3B8" }} />}
+          {!isChecking && state === "valid" && <Check className="h-4 w-4" style={{ color: "#22C55E" }} />}
+          {!isChecking && state === "invalid" && <AlertCircle className="h-4 w-4" style={{ color: "#EF4444" }} />}
+          {!isChecking && state === "typo_warning" && <AlertTriangle className="h-4 w-4" style={{ color: "#F59E0B" }} />}
         </div>
       </div>
 
-      {isCheckingDuplicate && (
-        <p className="mt-1 text-[11px]" style={{ color: "#64748B" }}>Checking availability…</p>
+      {isChecking && (
+        <p className="mt-1 text-[11px]" style={{ color: "#64748B" }}>
+          {state === "checking" ? "Verifying email address…" : "Checking availability…"}
+        </p>
       )}
+
 
       {error && !typoSuggestion && (
         <div id="email-error" role="alert" aria-live="polite" aria-atomic="true" className="mt-1 text-[12px]" style={{ color: "#EF4444" }}>
@@ -186,14 +193,11 @@ export function AuthModal({ open, onOpenChange, initialTab = "signup" }: AuthMod
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [open, close]);
+  }, [open]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -201,11 +205,11 @@ export function AuthModal({ open, onOpenChange, initialTab = "signup" }: AuthMod
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.7)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) close(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
     >
+
       <AnimatePresence mode="wait">
         <motion.div
           key={screen}
@@ -484,6 +488,9 @@ function RegisterScreen({ onBack, onDone }: { onBack: () => void; onDone: (email
         setErrors((er) => ({ ...er, email: "Please use a permanent email address to create your account" }));
       } else if (msg === "invalid_email_format" || msg === "email_too_long") {
         setErrors((er) => ({ ...er, email: "Please enter a valid email address" }));
+      } else if (msg === "undeliverable_email") {
+        setErrors((er) => ({ ...er, email: "This email domain doesn't exist or can't receive mail. Please check the spelling." }));
+
       } else {
         toast.error("Couldn't create your account", { description: msg });
       }
